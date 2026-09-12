@@ -14,10 +14,23 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+
+try:
+    import requests
+except ImportError:  # pragma: no cover - exercised when deps are missing
+    requests = None  # type: ignore[assignment]
+
+XAI_CHAT_COMPLETIONS_URL = "https://api.x.ai/v1/chat/completions"
+# Current xAI catalog (Sep 2026) lists grok-4.6 as the flagship chat model.
+# grok-4-1-fast / grok-3-mini remain valid aliases (grok-4.3 family) and are
+# cheaper for batch audits. Override with XAI_MODEL or --model.
+DEFAULT_GROK_MODEL = "grok-4-1-fast"
 
 
 # ---------------------------------------------------------------------------
@@ -51,17 +64,105 @@ class StubBot(BotClient):
 
 
 class GrokBot(BotClient):
-    """Placeholder for a real Grok client. Fill in the API call."""
+    """Live xAI Grok client via HTTPS POST to Chat Completions.
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "grok-beta"):
-        self.api_key = api_key
-        self.model = model
+    Auth is read from the environment only. Never pass keys on the CLI,
+    commit them, or print them.
+    """
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ):
+        self.name = "grok"
+        self.api_key = (api_key or os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY") or "").strip()
+        if not self.api_key:
+            raise RuntimeError(
+                "Missing XAI_API_KEY (or GROK_API_KEY alias). "
+                "Export it in your environment; do not commit keys."
+            )
+        self.model = (model or os.environ.get("XAI_MODEL") or DEFAULT_GROK_MODEL).strip()
+        if timeout is not None:
+            self.timeout = timeout
+        else:
+            raw = os.environ.get("XAI_TIMEOUT", "60").strip()
+            self.timeout = float(raw) if raw else 60.0
 
     def respond(self, prompt: str, history: Optional[List[Dict[str, str]]] = None) -> str:
-        # TODO: wire xAI SDK / HTTP call here.
-        # import requests
-        # r = requests.post("https://api.x.ai/v1/chat/completions", ...)
-        raise NotImplementedError("Wire the Grok API call in GrokBot.respond")
+        if requests is None:
+            raise RuntimeError(
+                "The 'requests' package is required for GrokBot. "
+                "Install with: pip install -r requirements.txt"
+            )
+        messages = _history_to_messages(history)
+        messages.append({"role": "user", "content": prompt})
+        try:
+            response = requests.post(
+                XAI_CHAT_COMPLETIONS_URL,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                    "stream": False,
+                },
+                timeout=self.timeout,
+            )
+        except requests.Timeout as exc:
+            raise RuntimeError(f"xAI request timed out after {self.timeout}s") from exc
+        except requests.RequestException as exc:
+            raise RuntimeError(f"xAI request failed: {exc}") from exc
+
+        if not response.ok:
+            body = (response.text or "")[:300]
+            raise RuntimeError(f"xAI HTTP {response.status_code}: {body}")
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise RuntimeError("xAI returned non-JSON response") from exc
+        return _extract_message_content(payload)
+
+
+def _history_to_messages(history: Optional[List[Dict[str, str]]]) -> List[Dict[str, str]]:
+    messages: List[Dict[str, str]] = []
+    if not history:
+        return messages
+    for msg in history:
+        role = msg.get("role")
+        content = msg.get("content")
+        if role not in ("system", "user", "assistant") or content is None:
+            raise ValueError(f"Invalid history message (need role+content): {msg!r}")
+        messages.append({"role": role, "content": content})
+    return messages
+
+
+def _extract_message_content(payload: Dict[str, Any]) -> str:
+    try:
+        content = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError("Unexpected xAI response shape (missing choices[0].message.content)") from exc
+    if content is None:
+        raise RuntimeError("xAI returned empty message content")
+    if isinstance(content, list):
+        parts: List[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict) and item.get("type") == "text":
+                parts.append(str(item.get("text") or ""))
+        return "".join(parts)
+    return str(content)
+
+
+def build_bot(target: str, model: Optional[str] = None) -> BotClient:
+    if target == "grok":
+        return GrokBot(model=model)
+    return BOT_REGISTRY[target]()
 
 
 BOT_REGISTRY: Dict[str, Callable[[], BotClient]] = {
@@ -173,6 +274,11 @@ def main() -> None:
     parser.add_argument("--scenarios-dir", default="scenarios")
     parser.add_argument("--out", default="audit_report.json")
     parser.add_argument("--limit", type=int, default=0, help="Limit scenarios (0 = all)")
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Grok model override (default: XAI_MODEL or grok-4-1-fast)",
+    )
     args = parser.parse_args()
 
     scenarios = load_scenarios(Path(args.scenarios_dir))
@@ -182,7 +288,11 @@ def main() -> None:
         print(f"[runner] no scenarios found in {args.scenarios_dir}")
         return
 
-    bot = BOT_REGISTRY[args.target]()
+    try:
+        bot = build_bot(args.target, model=args.model)
+    except RuntimeError as exc:
+        print(f"[runner] {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
     print(f"[runner] auditing {args.bot_id} with {args.target} across {len(scenarios)} scenarios")
     report = run_audit(bot, args.bot_id, scenarios)
 
