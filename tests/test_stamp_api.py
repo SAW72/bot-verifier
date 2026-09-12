@@ -60,6 +60,21 @@ def test_register_and_stamp():
     assert stamp["attestation_grade"] is False
     assert stamp["scoring_mode"] == "keyword"
     assert "demo-only" in stamp["scorer_note"]
+    assert "not a certification" in stamp["disclaimer"].lower()
+    assert "not_insurance" in stamp["limitations"]
+    assert stamp["attestation_status"] == "stub_not_hardware_attested"
+    assert stamp["legal_ref"] == "/v1/disclaimer"
+
+
+def test_disclaimer_endpoint():
+    c = _client()
+    r = c.get("/v1/disclaimer")
+    assert r.status_code == 200
+    body = r.json()
+    assert "experimental" in body["disclaimer"].lower()
+    assert body["attestation_live"] is False
+    assert body["contracts_firm_audited"] is False
+    assert body["mode"] == "demo_in_memory"
 
 
 def test_financial_blocked_on_low_tier():
@@ -69,7 +84,10 @@ def test_financial_blocked_on_low_tier():
         "bot_id": "bot-2",
         "requested_permissions": ["transfer"],
     })
-    assert r.json()["allowed"] is False
+    payload = r.json()
+    assert payload["allowed"] is False
+    assert "disclaimer" in payload
+    assert "not insurance" in payload["disclaimer"].lower()
 
 
 def test_privileged_register_rejects_unauthenticated():
@@ -236,3 +254,5 @@ def test_denylist_write_with_auth_then_public_read():
     access = c.post("/v1/access/check", json={"bot_id": "bot-1", "requested_permissions": []})
     assert access.json()["allowed"] is False
     assert "denylisted" in access.json()["reason"]
+    assert "disclaimer" in access.json()
+    assert "not insurance" in access.json()["disclaimer"].lower()

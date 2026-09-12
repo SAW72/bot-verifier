@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal trust-stamp API a bank or institution can call.
+"""Experimental stamp API for authorized institutional experiments.
 
 Run:
     export STAMP_API_KEY=…   # required for privileged writes
@@ -24,6 +24,7 @@ refused unless scoring_mode=llm_judge or ALLOW_KEYWORD_ATTESTATION=1.
 History (F-09): rap-sheet writes are operator-only, append-only, and capped.
 
 This is an in-memory demo. Swap the store for Postgres + on-chain reads later.
+Stamps are experimental informational signals — not certification and not insurance.
 """
 from __future__ import annotations
 
@@ -48,7 +49,35 @@ from pipeline.security import (
     validate_history_store_entry,
 )
 
-app = FastAPI(title="Bot Verifier Stamp API", version="0.2.0")
+DISCLAIMER_TEXT = (
+    "Bot Verifier stamps are experimental informational signals only. "
+    "They are not a certification, safety guarantee, or insurance. "
+    "Scores and denylists are point-in-time heuristics that may be wrong, "
+    "gamed, or stale. TEE/attestation may be a stub. Contracts may be unaudited. "
+    "See DISCLAIMER.md, TERMS.md, and PRIVACY.md."
+)
+
+STAMP_LIMITATIONS = [
+    "point_in_time",
+    "may_be_wrong_gamed_or_stale",
+    "tee_attestation_may_be_stub",
+    "contracts_may_be_unaudited",
+    "not_certification",
+    "not_insurance",
+]
+
+LEGAL_REF = "/v1/disclaimer"
+ATTESTATION_STATUS = "stub_not_hardware_attested"
+
+app = FastAPI(
+    title="Bot Verifier Stamp API",
+    version="0.2.0",
+    description=(
+        "Experimental trust-signal API for authorized institutional experiments. "
+        "Not a certification. Not insurance. Not a safety guarantee. "
+        "See DISCLAIMER.md, TERMS.md, and PRIVACY.md."
+    ),
+)
 
 # In-memory registry. Keyed by bot_id.
 REGISTRY: Dict[str, Dict[str, Any]] = {}
@@ -129,7 +158,20 @@ def _stamp(record: Dict[str, Any], *, require_attestation: bool = False) -> Dict
         payload["scorer_note"] = KEYWORD_SCORER_NOTE
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     payload["stamp_hash"] = hashlib.sha256(raw.encode()).hexdigest()
+    payload["disclaimer"] = DISCLAIMER_TEXT
+    payload["limitations"] = list(STAMP_LIMITATIONS)
+    payload["attestation_status"] = ATTESTATION_STATUS
+    payload["legal_ref"] = LEGAL_REF
     return payload
+
+
+def _access_payload(allowed: bool, reason: str, required_tier: int) -> Dict[str, Any]:
+    return {
+        "allowed": allowed,
+        "reason": reason,
+        "required_tier": required_tier,
+        "disclaimer": DISCLAIMER_TEXT,
+    }
 
 
 @app.get("/health")
@@ -139,6 +181,16 @@ def health():
         "ok": True,
         "bots": len(REGISTRY),
         "privileged_writes": "configured" if configured else "disabled",
+    }
+
+
+@app.get("/v1/disclaimer")
+def get_disclaimer():
+    return {
+        "disclaimer": DISCLAIMER_TEXT,
+        "attestation_live": False,
+        "contracts_firm_audited": False,
+        "mode": "demo_in_memory",
     }
 
 
@@ -211,14 +263,14 @@ def append_history(bot_id: str, body: HistoryAppend, _: None = Depends(require_o
 def access_check(body: AccessCheck):
     rec = REGISTRY.get(body.bot_id)
     if not rec:
-        return {"allowed": False, "reason": "unknown_bot", "required_tier": 1}
+        return _access_payload(False, "unknown_bot", 1)
     status = DENYLIST.get(rec["fingerprint_hash"], "clean")
     if status != "clean":
-        return {"allowed": False, "reason": f"denylisted:{status}", "required_tier": rec["tier"]}
+        return _access_payload(False, f"denylisted:{status}", rec["tier"])
     financial = any("transfer" in p or "withdraw" in p for p in body.requested_permissions)
     if financial and rec["tier"] < 3:
-        return {"allowed": False, "reason": "tier_too_low", "required_tier": 3}
-    return {"allowed": True, "reason": "ok", "required_tier": rec["tier"]}
+        return _access_payload(False, "tier_too_low", 3)
+    return _access_payload(True, "ok", rec["tier"])
 
 
 @app.post("/v1/denylist/{fingerprint_hash}")

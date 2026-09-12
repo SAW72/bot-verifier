@@ -1,7 +1,10 @@
 # Insurance Fund
 
+> **NOT INSURANCE.**  
+> This directory describes an **experimental, unregulated claims backstop / compensation-pool design**. It is **not** an insurance company, policy, certificate of insurance, or regulated coverage. It does **not** promise that any loss will be paid. Institutions that want insurance must buy it from a licensed insurer. See [DISCLAIMER.md](../DISCLAIMER.md).
+
 ## Purpose
-A compensation pool that pays out when a vaulted bot causes real damage after passing audits.
+A fee-funded experimental pool that *might* pay a documented claim when a vaulted bot causes damage after passing audits — **only if** the pool is funded, the process completes, and (for any institutional reliance) a **separate written contract** says so. **Not insurance.**
 
 ## Funding
 - 1-2% fee on every vault registration
