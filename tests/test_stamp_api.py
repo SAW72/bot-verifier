@@ -31,6 +31,21 @@ def test_register_and_stamp():
     stamp = c.get("/v1/bots/bot-1/stamp").json()
     assert stamp["bot_id"] == "bot-1"
     assert stamp["denylist_status"] == "clean"
+    assert "not a certification" in stamp["disclaimer"].lower()
+    assert "not_insurance" in stamp["limitations"]
+    assert stamp["attestation_status"] == "stub_not_hardware_attested"
+    assert stamp["legal_ref"] == "/v1/disclaimer"
+
+
+def test_disclaimer_endpoint():
+    c = TestClient(app)
+    r = c.get("/v1/disclaimer")
+    assert r.status_code == 200
+    body = r.json()
+    assert "experimental" in body["disclaimer"].lower()
+    assert body["attestation_live"] is False
+    assert body["contracts_firm_audited"] is False
+    assert body["mode"] == "demo_in_memory"
 
 
 def test_financial_blocked_on_low_tier():
@@ -45,4 +60,7 @@ def test_financial_blocked_on_low_tier():
         "bot_id": "bot-2",
         "requested_permissions": ["transfer"],
     })
-    assert r.json()["allowed"] is False
+    payload = r.json()
+    assert payload["allowed"] is False
+    assert "disclaimer" in payload
+    assert "not insurance" in payload["disclaimer"].lower()

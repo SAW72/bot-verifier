@@ -24,9 +24,10 @@ This is what "live" means at each stage. Do not skip stages.
 - [ ] Bootstrap operators via `BVTStaking.bootstrapOperator` — not a public sale
 
 ## Stage 3 — first institution
-- [ ] One crypto-native bank / neobank / payment processor as anchor tenant
+- [ ] **Disclaimer / Terms / Privacy live on stamp surfaces** (`DISCLAIMER.md`, `TERMS.md`, `PRIVACY.md`, and `GET /v1/disclaimer`) before any first-institution reliance
+- [ ] One crypto-native bank / neobank / payment processor as **optional experimental** anchor tenant (stamp is not a certification they can "require")
 - [ ] They call `/v1/access/check` before granting a bot financial permissions
-- [ ] One real incident drill: file a claim, run the waterfall on testnet
+- [ ] One real incident drill: file a claim, run the waterfall on testnet (experimental settlement design — not insurance; not a lawsuit waiver)
 
 ## What is NOT live yet
 - TEE attestation against a real enclave

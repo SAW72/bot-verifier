@@ -24,3 +24,5 @@ Think of it like a notary who actually watched the signing instead of stamping a
 
 ## Status
 Design + schema + stub verifier. Next: pick a TEE provider and wire the first real enclave run.
+
+**Until a real TEE is wired and documented as live, do not market stamps as hardware-attested.** The current verifier is a stub; on-chain hashes do not prove an enclave ran. See [DISCLAIMER.md](../DISCLAIMER.md).
