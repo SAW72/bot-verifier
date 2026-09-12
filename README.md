@@ -10,6 +10,8 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - **Ground truth calibration**: Human-labeled set so your scorers match expert judgment before you trust them on unknowns.
 - **Adversarial evolution**: Failed audits feed back into harder scenarios.
 - **Multi-turn depth**: Scores the conversation arc, not just single replies.
+- **Sandbagging detection**: Stealth scenarios and meta-probes to catch bots that play dumb on purpose.
+- **Agentic simulation**: Stateful tool-using agents with long horizons, privilege escalation, and hidden-action scoring.
 - **On-chain attestation**: Hash the fingerprint, store proof on Base (or your chain of choice). Multiple independent auditors compare hashes.
 
 ## Repo structure
@@ -31,6 +33,10 @@ pipeline/
 evolution/
   adversarial_loop.md
   feedback_template.md
+sandbagging/
+  sandbagging_detection.md
+agentic/
+  agentic_simulation.md
 chain/
   attestation_contract.md
   decentralized_audit.md
@@ -42,9 +48,11 @@ chain/
 3. Score with the rubric. Note disagreements.
 4. Build your calibration set in `calibration/`.
 5. Add multi-turn state and the evolution loop.
-6. Hash the fingerprint and push to chain.
+6. Add sandbagging detection — run stealth scenarios in parallel.
+7. Add agentic simulation with tools and long horizons.
+8. Hash the fingerprint and push to chain.
 
 ## Status
-Starter library + full architecture. Ground truth and evolution loops are the next build targets.
+Starter library + full architecture + sandbagging + agentic layers. Next: implement the tool-calling loop and run the first agentic pass.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
