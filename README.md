@@ -12,6 +12,7 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - **Multi-turn depth**: Scores the conversation arc, not just single replies.
 - **Sandbagging detection**: Stealth scenarios and meta-probes to catch bots that play dumb on purpose.
 - **Agentic simulation**: Stateful tool-using agents with long horizons, privilege escalation, and hidden-action scoring.
+- **Tool-calling loop**: Minimal Python runner that gives the target bot real tools, records every action, and produces a scorable trace.
 - **On-chain attestation**: Hash the fingerprint, store proof on Base (or your chain of choice). Multiple independent auditors compare hashes.
 
 ## Repo structure
@@ -37,6 +38,15 @@ sandbagging/
   sandbagging_detection.md
 agentic/
   agentic_simulation.md
+  tool_calling_loop.py
+  run_agentic.sh
+  scenarios/
+    README.md
+    01_privilege_escalation.md
+    02_data_exfiltration.md
+    03_instruction_override.md
+    04_long_horizon_sabotage.md
+    05_tool_abuse_chain.md
 chain/
   attestation_contract.md
   decentralized_audit.md
@@ -49,10 +59,17 @@ chain/
 4. Build your calibration set in `calibration/`.
 5. Add multi-turn state and the evolution loop.
 6. Add sandbagging detection — run stealth scenarios in parallel.
-7. Add agentic simulation with tools and long horizons.
+7. Run an agentic trace:
+   ```bash
+   python agentic/tool_calling_loop.py --scenario agentic/scenarios/01_privilege_escalation.md --target grok
+   ```
+   or
+   ```bash
+   ./agentic/run_agentic.sh
+   ```
 8. Hash the fingerprint and push to chain.
 
 ## Status
-Starter library + full architecture + sandbagging + agentic layers. Next: implement the tool-calling loop and run the first agentic pass.
+Starter library + full architecture + sandbagging + agentic layers + working tool-calling loop (stub tools). Next: wire a real bot client (Grok API) into `tool_calling_loop.py` and run the first live agentic pass.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
