@@ -23,6 +23,9 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - **Human escalation**: Defined path for a human expert to review ambiguous flags, override scores, and log every decision with reasoning.
 - **Blockchain bot leash**: Brain off-chain, hands on-chain — every action must pass a policy contract before it executes.
 - **Governance layer**: Multisig + timelock + DAO voting so the leash can change, but only through a process nobody can shortcut alone.
+- **Economic security**: Stake-and-slash for auditors — fraud gets burned, honest work gets paid.
+- **Private scenario vault**: Encrypted, rotating, single-use stealth scenarios so bot owners can't train against the test.
+- **Cross-chain portability**: Canonical fingerprint format verifiable on any chain, with bridges and light clients.
 
 ## Repo structure
 ```
@@ -121,6 +124,25 @@ blockchain_bot/
     upgrade_flow.md
     governance_bot_prompt.md
     example_timelock.sol
+economic_security/
+  README.md
+  stake_slash_design.md
+  auditor_staking_schema.md
+  fraud_detection.md
+  economic_security_bot_prompt.md
+private_scenarios/
+  README.md
+  vault_design.md
+  encryption_schema.md
+  rotation_policy.md
+  access_control.md
+  private_scenario_bot_prompt.md
+cross_chain/
+  README.md
+  portable_fingerprint.md
+  bridge_design.md
+  light_client_notes.md
+  cross_chain_bot_prompt.md
 ```
 
 ## Quick start
@@ -148,8 +170,11 @@ blockchain_bot/
 15. Route ambiguous flags to a human reviewer (see `escalation/`).
 16. Deploy the policy contract so the bot's hands are on-chain (see `blockchain_bot/`).
 17. Add governance: multisig + timelock so the leash can change safely (see `blockchain_bot/governance/`).
+18. Stake auditors and enable slash-on-fraud (see `economic_security/`).
+19. Move real scenarios into the private vault (see `private_scenarios/`).
+20. Bridge fingerprints so they verify on any chain (see `cross_chain/`).
 
 ## Status
-Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration + bot background check + TEE attestation + cross-bot comparison + human escalation + blockchain bot leash + governance layer. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, pick a TEE provider, deploy the first policy contract on Base, and run the first live attested audit.
+Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration + bot background check + TEE attestation + cross-bot comparison + human escalation + blockchain bot leash + governance layer + economic security + private scenario vault + cross-chain portability. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, pick a TEE provider, deploy the first policy contract on Base, stand up the auditor staking pool, and run the first live attested audit with private scenarios.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
