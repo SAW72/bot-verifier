@@ -1,12 +1,24 @@
+# Secrets — never commit keys
+.env
+.env.*
+!.env.example
+
+# Foundry
+cache/
+out/
+broadcast/
+lib/
+foundry.lock
+
+# Python
 __pycache__/
 *.pyc
-.env
+.venv/
+.pytest_cache/
+
+# Runner output
 audit_report.json
 meta_report.json
-out/
-cache/
-.venv/
+
+# Other local tooling
 node_modules/
-broadcast/
-cache/
-out/

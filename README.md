@@ -34,12 +34,34 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 
 ## Quick start
 ```bash
-cd pipeline
-./run_audit.sh
-python meta_audit_runner.py --primary audit_report.json
+pip install -r requirements.txt
+./pipeline/run_audit.sh
+python meta_audit/meta_audit_runner.py --primary audit_report.json
 ```
 
+### Live Grok
+Key from env only. Never commit `XAI_API_KEY`.
+
+```bash
+XAI_API_KEY=… python pipeline/end_to_end_runner.py --target grok --scenarios-dir scenarios --limit 5 --out audit_report.json
+```
+
+Default model: `grok-4-1-fast` (override with `XAI_MODEL` or `--model`, e.g. `grok-4.6` or `grok-3-mini`). Alias: `GROK_API_KEY`. Stub still works with no key: `./pipeline/run_audit.sh`.
+
+### Contracts (Base Sepolia, chainid 84532)
+Agents do **not** broadcast. Spencer deploys with his key:
+
+```bash
+forge install foundry-rs/forge-std
+forge build && forge test
+export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
+# PRIVATE_KEY from env only — never commit
+forge script script/Deploy.s.sol:Deploy --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
+```
+
+The script reverts on Ethereum mainnet (`chainid == 1`) and on any chain other than Base Sepolia. ETH Sepolia (`11155111`) is a documented one-line switch in `script/Deploy.s.sol`. Paste addresses into `contracts/README.md` after deploy.
+
 ## Status
-Architecture complete. Core runner, denylist, vault, liability, insurance, dispute, meta-audit, and key management are now real code. Remaining: wire a live Grok client, deploy contracts on a testnet, stand up the auditor staking pool, and run the first live attested audit.
+Architecture complete. Core runner (stub + live Grok client), denylist, vault, liability, insurance, dispute, meta-audit, key management, and a Base Sepolia Foundry deploy path are real code. Remaining: stand up the auditor staking pool, Spencer broadcasts the testnet deploy, and run the first live attested audit.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
