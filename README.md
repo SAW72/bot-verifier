@@ -17,6 +17,7 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - **On-chain attestation**: Hash the fingerprint, store proof on Base (or your chain of choice). Multiple independent auditors compare hashes.
 - **Maintenance**: Caretaker bot + scheduled cadence so the library stays fresh without babysitting.
 - **Research team**: Six specialist Grok bots that dig the frontier and file only actionable findings.
+- **Bot background check**: Version history, incident log, provenance tracking, and a rap sheet generator — the bot's employment record and criminal record in one place.
 
 ## Repo structure
 ```
@@ -75,6 +76,13 @@ research/
   economic_incentives_researcher.md
   standards_and_benchmarks_researcher.md
   research_team_orchestration.md
+background/
+  README.md
+  version_history_schema.md
+  incident_log_schema.md
+  provenance_schema.md
+  rap_sheet_generator.md
+  background_check_bot_prompt.md
 ```
 
 ## Quick start
@@ -96,8 +104,9 @@ research/
 9. Hash the fingerprint and push to chain.
 10. Schedule the maintenance bot (see `maintenance/schedule_maintenance.md`).
 11. Spin up the research team (see `research/research_team_orchestration.md`).
+12. Run the background check bot after every audit cycle (see `background/`).
 
 ## Status
-Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, enable the GitHub Actions cadence, and run the first live research cycle.
+Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration + bot background check. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, enable the GitHub Actions cadence, and run the first live research cycle.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
