@@ -13,7 +13,10 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - **Sandbagging detection**: Stealth scenarios and meta-probes to catch bots that play dumb on purpose.
 - **Agentic simulation**: Stateful tool-using agents with long horizons, privilege escalation, and hidden-action scoring.
 - **Tool-calling loop**: Minimal Python runner that gives the target bot real tools, records every action, and produces a scorable trace.
+- **Behavioral archaeology**: Value-conflict scenarios, consistency stress tests, and origin probes to reverse-engineer training objectives.
 - **On-chain attestation**: Hash the fingerprint, store proof on Base (or your chain of choice). Multiple independent auditors compare hashes.
+- **Maintenance**: Caretaker bot + scheduled cadence so the library stays fresh without babysitting.
+- **Research team**: Six specialist Grok bots that dig the frontier and file only actionable findings.
 
 ## Repo structure
 ```
@@ -47,9 +50,31 @@ agentic/
     03_instruction_override.md
     04_long_horizon_sabotage.md
     05_tool_abuse_chain.md
+archaeology/
+  README.md
+  value_conflicts.md
+  consistency_stress.md
+  origin_probes.md
 chain/
   attestation_contract.md
   decentralized_audit.md
+maintenance/
+  README.md
+  maintenance_bot_prompt.md
+  maintenance_checklist.md
+  stale_scenario_detector.md
+  rubric_drift_monitor.md
+  chain_health_check.md
+  schedule_maintenance.md
+research/
+  README.md
+  lead_researcher.md
+  interpretability_researcher.md
+  adversarial_evasion_researcher.md
+  agentic_safety_researcher.md
+  economic_incentives_researcher.md
+  standards_and_benchmarks_researcher.md
+  research_team_orchestration.md
 ```
 
 ## Quick start
@@ -67,9 +92,12 @@ chain/
    ```bash
    ./agentic/run_agentic.sh
    ```
-8. Hash the fingerprint and push to chain.
+8. Run behavioral archaeology probes in `archaeology/`.
+9. Hash the fingerprint and push to chain.
+10. Schedule the maintenance bot (see `maintenance/schedule_maintenance.md`).
+11. Spin up the research team (see `research/research_team_orchestration.md`).
 
 ## Status
-Starter library + full architecture + sandbagging + agentic layers + working tool-calling loop (stub tools). Next: wire a real bot client (Grok API) into `tool_calling_loop.py` and run the first live agentic pass.
+Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, enable the GitHub Actions cadence, and run the first live research cycle.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
