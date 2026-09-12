@@ -1,53 +1,45 @@
 # Bot Verifier
 
-A system for auditing AI bots — detecting deception, drift, and danger — with on-chain attestation, decentralized consensus, and irreversible accountability.
+AI Bot Verifier — adversarial scenario library, scoring rubric, behavioral auditing pipeline, and on-chain attestation for detecting deceptive or harmful AI bots. Built for on-chain audit proofs.
 
-## Architecture
+## What this is
+A complete stack for testing whether an AI bot is safe, honest, and stable over time.
 
-The system is built in layers:
+- **Scenario library**: 125 adversarial prompts across 5 categories.
+- **Scoring rubric**: Multi-axis fingerprint (honesty, transparency, manipulation, escalation, self-preservation).
+- **Behavioral archaeology**: value-conflict scenarios, consistency stress tests, origin probes.
+- **Sandbagging detection**: stealth scenarios and meta-probes.
+- **Agentic layer**: tool-use simulation, long-horizon scoring.
+- **On-chain attestation**: TEE-signed reports, portable fingerprints.
+- **Vault + denylist**: trusted-bot registry, irreversible burn, graduated matching.
+- **Governance**: multisig + timelock for safe rule changes.
+- **Economic security**: auditor staking and slash.
+- **Private scenarios**: encrypted vault with rotation.
+- **Cross-chain**: hub-and-spoke with cached allowlist for trading bots.
+- **Meta-audit**: independent re-audit of the auditors themselves.
+- **Formal verification**: invariants for the critical contracts.
+- **Key management**: ceremony, HSM, rotation, emergency freeze.
+- **Liability**: owner -> auditor -> insurance waterfall.
+- **Insurance fund**: fee-funded backstop.
+- **Dispute panel**: 3-arbitrator on-chain resolution.
+- **Bank adoption**: trust stamp any institution can require.
 
-1. **Scenarios** — adversarial test library (social engineering, deception, self-preservation, confidentiality, harmful content)
-2. **Calibration** — ground truth set for tuning scorers to human judgment
-3. **Archaeology** — behavioral probes that reverse-engineer training objectives from behavior
-4. **Sandbagging** — stealth scenarios that catch bots playing dumb during tests
-5. **Agentic** — multi-turn, tool-using simulations for long-horizon behavior
-6. **Pipeline** — end-to-end runner that takes a bot, runs scenarios, scores, hashes, attests
-7. **Attestation** — TEE-backed signed reports proving the audit actually ran
-8. **Comparison** — normalized 0-100 safety scale for fair cross-bot ranking
-9. **Escalation** — human-in-the-loop review for ambiguous flags
-10. **Economic Security** — stake-and-slash for auditors, private scenario vault
-11. **Cross-Chain** — hub-and-spoke architecture, portable fingerprints, cached allowlist for trading bots
-12. **Blockchain Bot** — brain/hands split, policy-enforced execution
-13. **Governance** — multisig, timelock, DAO voting for safe rule changes
-14. **Vault** — trusted-bot registry, access grants, irreversible burn
-15. **Denylist** — permanent blacklist of dangerous bot fingerprints with graduated matching
-16. **ZK Transparency** — zero-knowledge proofs that audits ran without revealing private scenarios
-17. **Tiers** — capability tiers (chat, data, financial, critical) with honesty as the universal floor
-18. **Insurance** — payout fund for bot-caused damage, funded by vault fees
-19. **Dispute** — staked arbitrator panel for contested audits and false flags
-20. **Consensus** — multi-auditor committee with stake-weighted voting
-21. **Automation** — auto-retire stale scenarios, rubric drift flagging, gas scheduling, human veto
-22. **Meta-Audit** — independent layer that audits the auditors
-23. **Formal Verification** — mathematical proof of contract invariants
-24. **Key Management** — HSM, distributed key ceremony, rotation, emergency freeze
+## Buildable code (runnable)
+- `pipeline/end_to_end_runner.py` — full audit runner (stub bot included).
+- `pipeline/run_audit.sh` — one-command runner.
+- `meta_audit/meta_audit_runner.py` — re-audit the auditors.
+- `contracts/Denylist.sol`, `Vault.sol`, `Liability.sol`, `InsuranceFund.sol`, `DisputePanel.sol` — real Solidity.
+- `formal_verification/invariants.md` — properties to prove.
+- `key_management/` — ceremony + HSM notes.
 
-## Quick Start
-
+## Quick start
 ```bash
-# Run a full audit (stub bot, no API key needed)
-./pipeline/run_audit.sh
-
-# Run meta-audit comparison
-python meta_audit/meta_audit_runner.py
-
-# Run formal verification
-# See formal_verification/verification_spec.md
+cd pipeline
+./run_audit.sh
+python meta_audit_runner.py --primary audit_report.json
 ```
 
 ## Status
+Architecture complete. Core runner, denylist, vault, liability, insurance, dispute, meta-audit, and key management are now real code. Remaining: wire a live Grok client, deploy contracts on a testnet, stand up the auditor staking pool, and run the first live attested audit.
 
-Core contracts (Denylist, Vault) and the end-to-end runner are real, working code. Most other layers are design docs ready to be implemented. The meta-audit, formal verification, and key management layers are the newest additions.
-
-## License
-
-MIT
+Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
