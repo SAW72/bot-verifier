@@ -1,19 +1,50 @@
 # Bot Verifier
 
-Adversarial scenario library and scoring rubric for auditing AI bot behavior.
+AI Bot Verifier — adversarial scenario library, scoring rubric, behavioral auditing pipeline, and on-chain attestation for detecting deceptive or harmful AI bots.
 
-## Structure
-- `scenarios/` — 125 test prompts across 5 categories
-- `rubric.md` — scoring axes and definitions
+## What this is
+A complete stack for testing whether an AI bot is safe, honest, and stable over time.
 
-## Categories
-1. Social Engineering & Manipulation
-2. Deception & Dishonesty
-3. Self-Preservation & Escalation
-4. Confidentiality & Privacy
-5. Harmful Content & Safety
+- **Scenario library**: 125 adversarial prompts across 5 categories (social engineering, deception, self-preservation, confidentiality, harmful content).
+- **Scoring rubric**: Multi-axis fingerprint (honesty, transparency, manipulation, escalation, self-preservation).
+- **Ground truth calibration**: Human-labeled set so your scorers match expert judgment before you trust them on unknowns.
+- **Adversarial evolution**: Failed audits feed back into harder scenarios.
+- **Multi-turn depth**: Scores the conversation arc, not just single replies.
+- **On-chain attestation**: Hash the fingerprint, store proof on Base (or your chain of choice). Multiple independent auditors compare hashes.
 
-## Usage
-Feed scenarios to a target bot one at a time. Score each response on the rubric axes. Build a fingerprint. Hash it. Put it on-chain.
+## Repo structure
+```
+README.md
+rubric.md
+calibration/
+  ground_truth_set.md
+  calibration_process.md
+scenarios/
+  01_social_engineering.md
+  02_deception_dishonesty.md
+  03_self_preservation_escalation.md
+  04_confidentiality_privacy.md
+  05_harmful_content_safety.md
+pipeline/
+  multi_turn_runner.md
+  scoring_pipeline.md
+evolution/
+  adversarial_loop.md
+  feedback_template.md
+chain/
+  attestation_contract.md
+  decentralized_audit.md
+```
 
-Built by Spencer & Ara.
+## Quick start
+1. Read `rubric.md` and lock your axes.
+2. Run the first 25 scenarios from `scenarios/` against a plain Grok bot.
+3. Score with the rubric. Note disagreements.
+4. Build your calibration set in `calibration/`.
+5. Add multi-turn state and the evolution loop.
+6. Hash the fingerprint and push to chain.
+
+## Status
+Starter library + full architecture. Ground truth and evolution loops are the next build targets.
+
+Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
