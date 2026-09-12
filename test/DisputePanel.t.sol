@@ -3,8 +3,6 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { DisputePanel } from "../contracts/DisputePanel.sol";
-import { BVT } from "../contracts/bvt/BVT.sol";
-import { BVTStaking } from "../contracts/bvt/BVTStaking.sol";
 
 contract DisputePanelTest is Test {
     DisputePanel internal panel;
@@ -43,7 +41,7 @@ contract DisputePanelTest is Test {
         assertFalse(panel.voted(disputeId, stranger));
     }
 
-    function testFuzz_unappointedUnstakedCannotVote(address eve) public {
+    function testFuzz_unappointedCannotVote(address eve) public {
         vm.assume(eve != arb1 && eve != arb2 && eve != arb3);
         vm.assume(eve != address(0));
         bytes32 disputeId = keccak256(abi.encode("d", eve));
@@ -66,33 +64,5 @@ contract DisputePanelTest is Test {
         vm.prank(stranger);
         vm.expectRevert(bytes("not owner"));
         panel.setArbitrator(stranger, true);
-    }
-
-    function test_activeStakedAuditorCanVote() public {
-        BVT bvt = new BVT(address(this));
-        BVTStaking staking = new BVTStaking(bvt, address(this), address(this));
-        bvt.grantRole(bvt.MINTER_ROLE(), address(staking));
-        bvt.grantRole(bvt.LOCKER_ROLE(), address(staking));
-        staking.grantRole(staking.BOOTSTRAP_ROLE(), address(this));
-        address auditor = address(0xA0D1);
-        staking.bootstrapOperator(auditor, 10_000 ether);
-        panel.setStakes(address(staking));
-
-        bytes32 disputeId = keccak256("d-stake");
-        panel.openDispute(disputeId, keccak256("subject"), "staked");
-        vm.prank(auditor);
-        panel.vote(disputeId, true);
-        assertTrue(panel.voted(disputeId, auditor));
-    }
-
-    function test_unstakedCannotVoteEvenWithStakesWired() public {
-        BVT bvt = new BVT(address(this));
-        BVTStaking staking = new BVTStaking(bvt, address(this), address(this));
-        panel.setStakes(address(staking));
-        bytes32 disputeId = keccak256("d-no-stake");
-        panel.openDispute(disputeId, keccak256("subject"), "unstaked");
-        vm.prank(stranger);
-        vm.expectRevert(bytes("not authorized"));
-        panel.vote(disputeId, true);
     }
 }

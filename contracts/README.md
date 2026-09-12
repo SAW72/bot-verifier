@@ -7,11 +7,11 @@ Working Solidity for the on-chain layers. **Testnet only.** Mainnet is refused b
 - `Vault.sol` — trusted-bot registry with capability tiers and irreversible burn. Constructor: `Vault(denylist)`.
 - `InsuranceFund.sol` — fee-funded backstop. Constructor: `InsuranceFund(liability)` (immutable `onlyLiability` on `payout`).
 - `Liability.sol` — owner → auditor → insurance waterfall. Constructor: `Liability(insuranceFund)` or `Liability(address(0))` then `bindInsurance`.
-- `DisputePanel.sol` — 3-arbitrator resolution. Voters must be appointed and/or active staked auditors.
+- `DisputePanel.sol` — 3-arbitrator **allowlist**. Only `setArbitrator` appointees may vote.
 
 ## Deploy order (dependency-correct)
 
-Liability is created first (with `address(0)` insurance) so `InsuranceFund` can freeze the Liability address as an immutable `onlyLiability` caller, then `bindInsurance` sets the reverse pointer. `CORE_TIMELOCK` (≠ deployer) receives `setOwner` on all five contracts.
+Liability is created first (with `address(0)` insurance) so `InsuranceFund` can freeze the Liability address as an immutable `onlyLiability` caller, then `bindInsurance` sets the reverse pointer. `CORE_TIMELOCK` (≠ deployer) receives ownership:
 
 1. `Denylist`
 2. `Vault(denylist)`
@@ -19,7 +19,8 @@ Liability is created first (with `address(0)` insurance) so `InsuranceFund` can 
 4. `InsuranceFund(liability)`
 5. `liability.bindInsurance(insurance)`
 6. `DisputePanel`
-7. `setOwner(CORE_TIMELOCK)` on Denylist, Vault, InsuranceFund, Liability, DisputePanel
+7. `transferOwnership(CORE_TIMELOCK)` on Denylist and Vault (OZ **Ownable2Step** — timelock must `acceptOwnership`)
+8. `setOwner(CORE_TIMELOCK)` on InsuranceFund, Liability, DisputePanel
 
 ## Chainid guard
 
@@ -87,7 +88,7 @@ Fill in after Spencer broadcasts `script/Deploy.s.sol`.
 
 ## BVT stack (additive)
 
-Bot Verifier Token lives under `contracts/bvt/`. It does **not** change Denylist / Vault / Liability / InsuranceFund / DisputePanel. Those contracts can later call `IBVTFeeGate` / `IAuditorStakeView` (see `contracts/bvt/IBVTHooks.sol`) or transfer `owner` to `BVTTimelock`.
+Bot Verifier Token lives under `contracts/bvt/`. It does **not** change Denylist / Vault / Liability / InsuranceFund / DisputePanel. Those contracts can later call `IBVTFeeGate` / `IAuditorStakeView` (see `contracts/bvt/IBVTHooks.sol`). Core deploy already starts Ownable2Step handoff of Denylist / Vault to `CORE_TIMELOCK`.
 
 | File | Role |
 | --- | --- |

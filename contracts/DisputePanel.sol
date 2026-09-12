@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Lightweight on-chain dispute panel for contested audits / false flags.
-// 3 arbitrators, stake-weighted. Not audited. For illustration.
+// Appointed 3-arbitrator allowlist. Not audited. For illustration.
 pragma solidity ^0.8.20;
-
-import { IAuditorStakeView } from "./bvt/IBVTHooks.sol";
 
 contract DisputePanel {
     address public owner;
     uint256 public constant PANEL_SIZE = 3;
 
-    IAuditorStakeView public stakes;
     mapping(address => bool) public isArbitrator;
     uint256 public arbitratorCount;
 
@@ -31,7 +28,6 @@ contract DisputePanel {
     event VoteCast(bytes32 indexed disputeId, address voter, bool support);
     event DisputeResolved(bytes32 indexed disputeId, bool upheld);
     event ArbitratorUpdated(address indexed account, bool allowed);
-    event StakesUpdated(address indexed stakes);
     event OwnerUpdated(address indexed previous, address indexed next);
 
     constructor() {
@@ -49,6 +45,7 @@ contract DisputePanel {
         owner = newOwner;
     }
 
+    /// @notice Appoint or revoke an allowlisted arbitrator. Only these addresses may vote.
     function setArbitrator(address account, bool allowed) external onlyOwner {
         require(account != address(0), "zero arbitrator");
         if (isArbitrator[account] == allowed) return;
@@ -58,16 +55,8 @@ contract DisputePanel {
         emit ArbitratorUpdated(account, allowed);
     }
 
-    /// @notice Optional BVT stake gate. Active auditors may vote even if not appointed.
-    function setStakes(address _stakes) external onlyOwner {
-        stakes = IAuditorStakeView(_stakes);
-        emit StakesUpdated(_stakes);
-    }
-
     function canVote(address voter) public view returns (bool) {
-        if (isArbitrator[voter]) return true;
-        if (address(stakes) != address(0) && stakes.isActiveAuditor(voter)) return true;
-        return false;
+        return isArbitrator[voter];
     }
 
     function openDispute(bytes32 disputeId, bytes32 subjectHash, string calldata reason) external {
@@ -85,9 +74,9 @@ contract DisputePanel {
         emit DisputeOpened(disputeId, subjectHash, msg.sender);
     }
 
-    /// @notice Appointed arbitrator or active staked auditor. Random EOAs revert.
+    /// @notice Allowlisted arbitrator only. Random / unappointed addresses revert.
     function vote(bytes32 disputeId, bool support) external {
-        require(canVote(msg.sender), "not authorized");
+        require(isArbitrator[msg.sender], "not authorized");
         Dispute storage d = disputes[disputeId];
         require(d.createdAt != 0, "no dispute");
         require(!d.resolved, "resolved");

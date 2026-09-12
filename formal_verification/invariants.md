@@ -33,4 +33,4 @@ Use with a tool like Certora, Slither, or manual review.
 1. A dispute resolves only after >= 3 votes.
 2. `upheld` is true iff `votesFor >= votesAgainst`.
 3. No vote after resolution.
-4. `vote` reverts unless the caller is an appointed arbitrator or an active staked auditor (`canVote`).
+4. `vote` reverts unless the caller is an allowlisted arbitrator (`isArbitrator`).

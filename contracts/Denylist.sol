@@ -3,9 +3,10 @@
 // Not audited. For illustration and local testing.
 pragma solidity ^0.8.20;
 
-contract Denylist {
-    address public owner;
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
+contract Denylist is Ownable2Step {
     // Exact weight-hash denylist. Irreversible once added.
     mapping(bytes32 => bool) public denylistedHashes;
     // Behavioral signature denylist (fuzzy). Irreversible.
@@ -18,23 +19,8 @@ contract Denylist {
 
     event Denylisted(bytes32 indexed hash, string kind, uint256 ts);
     event Checked(bytes32 indexed hash, MatchLevel level, uint256 ts);
-    event OwnerUpdated(address indexed previous, address indexed next);
 
-    constructor() {
-        owner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "not owner");
-        _;
-    }
-
-    /// @notice Hand off to a timelock (or other owner). Matches IOwnableHook.
-    function setOwner(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "owner zero");
-        emit OwnerUpdated(owner, newOwner);
-        owner = newOwner;
-    }
+    constructor() Ownable(msg.sender) {}
 
     /// @notice Irreversibly denylist an exact weight hash.
     function addExact(bytes32 hash) external onlyOwner {

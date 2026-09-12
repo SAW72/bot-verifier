@@ -60,12 +60,14 @@ interface IAuditorSlash {
     ) external;
 }
 
-/// @notice Denylist / Vault / InsuranceFund / Liability / DisputePanel implement
-/// `setOwner`. `Deploy.s.sol` hands owner to `CORE_TIMELOCK`.
+/// @notice Denylist / Vault use OZ Ownable2Step. `Deploy.s.sol` calls
+/// `transferOwnership(CORE_TIMELOCK)`; the timelock must `acceptOwnership`.
 interface IOwnableHook {
     function owner() external view returns (address);
 
-    function setOwner(
-        address newOwner
-    ) external;
+    function pendingOwner() external view returns (address);
+
+    function transferOwnership(address newOwner) external;
+
+    function acceptOwnership() external;
 }

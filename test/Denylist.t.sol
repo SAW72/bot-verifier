@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import "../contracts/Denylist.sol";
 
 contract DenylistTest is Test {
@@ -23,11 +24,22 @@ contract DenylistTest is Test {
         d.remove(bytes32(0));
     }
 
-    function testSetOwnerAndStrangerCannotAdd() public {
+    function testOwnable2StepHandoffToTimelock() public {
         address timelock = address(0x71C0);
-        d.setOwner(timelock);
+        d.transferOwnership(timelock);
+        assertEq(d.owner(), address(this));
+        assertEq(d.pendingOwner(), timelock);
+
+        vm.prank(address(0xBAD));
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(0xBAD)));
+        d.acceptOwnership();
+
+        vm.prank(timelock);
+        d.acceptOwnership();
         assertEq(d.owner(), timelock);
-        vm.expectRevert(bytes("not owner"));
+        assertEq(d.pendingOwner(), address(0));
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         d.addExact(keccak256("x"));
         vm.prank(timelock);
         d.addExact(keccak256("x"));

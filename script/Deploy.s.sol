@@ -10,7 +10,9 @@ import { DisputePanel } from "../contracts/DisputePanel.sol";
 
 /// @notice Deploy Denylist → Vault → Liability → InsuranceFund → DisputePanel.
 /// InsuranceFund takes an immutable Liability; Liability then bindInsurance.
-/// After deploy, ownership of all Ownable core contracts moves to CORE_TIMELOCK.
+/// After deploy: Denylist/Vault `transferOwnership(CORE_TIMELOCK)` (Ownable2Step;
+/// timelock must `acceptOwnership`). InsuranceFund/Liability/DisputePanel
+/// `setOwner(CORE_TIMELOCK)`. InsuranceFund.payout stays onlyLiability.
 /// Chainid guard: Base Sepolia (84532) only. Mainnet is always refused.
 /// ETH Sepolia (11155111) is documented as a one-line switch — do not enable it
 /// here unless you intentionally change ALLOWED_CHAIN_ID.
@@ -52,8 +54,8 @@ contract Deploy is Script {
         liability.bindInsurance(address(insurance));
         DisputePanel panel = new DisputePanel();
 
-        denylist.setOwner(timelock);
-        vault.setOwner(timelock);
+        denylist.transferOwnership(timelock);
+        vault.transferOwnership(timelock);
         insurance.setOwner(timelock);
         liability.setOwner(timelock);
         panel.setOwner(timelock);

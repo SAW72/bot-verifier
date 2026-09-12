@@ -43,9 +43,31 @@ contract InsuranceFundTest is Test {
         assertEq(insurance.balance(), 4 ether);
     }
 
+    function test_strangerCannotDrain() public {
+        address eve = address(0xE1E);
+        uint256 before = insurance.balance();
+        assertGt(before, 0);
+        vm.prank(eve);
+        vm.expectRevert(bytes("not liability"));
+        insurance.payout(payable(eve), before, keccak256("drain"));
+        assertEq(insurance.balance(), before);
+        assertEq(eve.balance, 0);
+    }
+
     function test_ownerCannotPayout() public {
         vm.expectRevert(bytes("not liability"));
         insurance.payout(payable(address(this)), 1 ether, bytes32(0));
+    }
+
+    function test_ownerAfterHandoffStillCannotDrain() public {
+        address timelock = address(0x71C0);
+        insurance.setOwner(timelock);
+        assertEq(insurance.owner(), timelock);
+        uint256 before = insurance.balance();
+        vm.prank(timelock);
+        vm.expectRevert(bytes("not liability"));
+        insurance.payout(payable(timelock), before, keccak256("owner-drain"));
+        assertEq(insurance.balance(), before);
     }
 
     function test_otherContractCannotPayout() public {

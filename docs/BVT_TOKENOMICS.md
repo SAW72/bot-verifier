@@ -59,7 +59,7 @@ Default fees: register **100**, audit **250**, vault Chat/Data/Financial/Critica
 
 Voting power = **staked BVT** (lockup). Proposal threshold = `minStake`. Voting period **5 days**. Quorum **10%** of `totalStaked` at propose. Pass = more for than against.
 
-Passed proposals **queue** in `BVTTimelock` (default delay **48 hours**, min 1h / max 30d). Execute only after `eta`. Guardian/admin/governor can **cancel** during the delay. Parameter changes (`minStake`, fees, splits, sinks, slash bps, governor params, delay) go through this path. The same timelock can later own `Denylist` / `Vault` for denylist upgrades and tier changes without rewriting those contracts now.
+Passed proposals **queue** in `BVTTimelock` (default delay **48 hours**, min 1h / max 30d). Execute only after `eta`. Guardian/admin/governor can **cancel** during the delay. Parameter changes (`minStake`, fees, splits, sinks, slash bps, governor params, delay) go through this path. `Deploy.s.sol` starts Ownable2Step `transferOwnership` of `Denylist` / `Vault` to `CORE_TIMELOCK`; the timelock must `acceptOwnership`.
 
 ## What this is not
 
