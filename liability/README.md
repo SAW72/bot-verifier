@@ -1,10 +1,12 @@
 # Liability Layer
 
-When a verified bot causes harm, someone has to pay. This layer defines the liability waterfall so the trust stamp is a contract with teeth, not a lawsuit magnet.
+When a verified bot causes harm, recovery is uncertain. This layer describes an **experimental settlement / waterfall design**. It is **not** a lawsuit waiver, **not** insurance, and **not** a contract with teeth unless the parties sign **separate written agreements**.
+
+A stamp does **not** mean anyone agreed not to sue. Institutions remain solely responsible for access decisions. See [DISCLAIMER.md](../DISCLAIMER.md).
 
 ## The Problem
 
-A bank grants access based on the stamp. The bot drains an account. The lawsuit lands on whoever is closest — the bank, the vault operator, the auditor. Without a defined chain, no institution will require the stamp.
+An institution may consult a stamp and later suffer a loss. Without a separately negotiated allocation of risk, claims can land on whoever is closest — the institution, the vault operator, the auditor. The waterfall below is a **design sketch** for how a future contract *could* order recovery. It does not, by itself, bind anyone or make the stamp something an institution can safely "require."
 
 ## The Waterfall
 
@@ -12,16 +14,16 @@ Liability flows in this order:
 
 1. **Bot owner** — primary. They deployed the bot, they bear first responsibility.
 2. **Auditor** — secondary, only if negligent. If the auditor signed off on a bot that failed a scenario it should have caught, they share liability. Negligence is proven by divergence from the meta-audit or by a false pass that a reasonable auditor would have flagged.
-3. **Insurance fund** — backstop. Covers the gap when owner and auditor can't pay, or when the harm exceeds their capacity.
+3. **Experimental claims backstop** — **not insurance**. A fee-funded pool that *might* cover a gap if separately contracted, funded, and approved. Payment is not promised.
 4. **Vault operator** — last resort, only for systemic failure. If the vault itself granted access it shouldn't have due to a contract bug, the operator is liable. This is why formal verification matters.
 
 ## Key Rules
 
 - The waterfall is written into the vault contract. It can't be overridden by any single party.
 - Auditor liability requires proof of negligence, not just a bad outcome. A bot that passes honestly and later drifts is not the auditor's fault.
-- The insurance fund is funded by vault fees — a percentage of every registration and every audit.
-- Claims are filed on-chain, reviewed by the dispute panel, and paid from the fund automatically when approved.
-- The stamp itself includes a liability clause: by requiring the stamp, the institution acknowledges the waterfall and agrees not to sue beyond it.
+- The claims backstop (if funded) would be funded by vault fees — a percentage of every registration and every audit. That pool is **not insurance**.
+- Claims *could* be filed on-chain, reviewed by the dispute panel, and paid from the pool when a **separate contract** and the on-chain process both authorize it. Automatic payout is a design goal, not a guarantee.
+- The stamp must **not** be marketed as containing a "do not sue beyond the waterfall" clause. Any limitation of claims requires a **separately executed contract**. Repo docs and stamp JSON are not that contract.
 
 ## Files
 
