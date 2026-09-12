@@ -1,17 +1,14 @@
-# Cross-Chain Portability
+# Cross-Chain Layer
 
-Your attestation lives on Base. What happens when the bot moves to Solana or Ethereum?
-
-## The problem
-A fingerprint on one chain is a silo. If the bot's policy contract lives on Base but the bot runs on Solana, you have no portable proof.
-
-## The fix
-A portable attestation standard — a canonical fingerprint format that can be verified on any chain, with bridges or light clients to carry the proof.
+This folder holds the design for making the bot verifier work independently across every blockchain.
 
 ## Files
-- `portable_fingerprint.md` — the canonical format
-- `bridge_design.md` — how proofs travel between chains
-- `light_client_notes.md` — verifying without full nodes
-- `cross_chain_bot_prompt.md` — Grok bot that tracks portability
+- `hub_spoke_architecture.md` — the canonical hub with decentralized validators, light-client spokes on every chain.
+- `local_cache_for_trading.md` — how high-frequency trading bots avoid round-trip latency using signed allowlists and heartbeats.
+- `bridge_design.md` — permissionless bridge for upward and downward record flow.
+- `light_client_notes.md` — how spokes verify hub state without trusting a relayer.
+- `portable_fingerprint.md` — chain-agnostic fingerprint format.
+- `cross_chain_bot_prompt.md` — prompt for the cross-chain monitor bot.
 
-The goal: one fingerprint, verifiable everywhere, no matter where the bot lives.
+## Principle
+One protocol, every chain, no single point of control. Trading bots get speed through cached attestations; safety comes from fail-closed expiry.
