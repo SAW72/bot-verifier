@@ -29,6 +29,7 @@ contract Vault {
     event Registered(bytes32 indexed botId, Tier tier, uint256 ts);
     event Burned(bytes32 indexed botId, uint256 ts);
     event AccessGranted(bytes32 indexed botId, Tier tier, uint256 ts);
+    event OwnerUpdated(address indexed previous, address indexed next);
 
     constructor(address _denylist) {
         owner = msg.sender;
@@ -42,6 +43,13 @@ contract Vault {
     modifier onlyOwner() {
         require(msg.sender == owner, "not owner");
         _;
+    }
+
+    /// @notice Hand off to a timelock (or other owner). Matches IOwnableHook.
+    function setOwner(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "owner zero");
+        emit OwnerUpdated(owner, newOwner);
+        owner = newOwner;
     }
 
     /// @notice Register a bot after it passes the denylist check.

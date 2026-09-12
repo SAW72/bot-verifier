@@ -22,4 +22,15 @@ contract DenylistTest is Test {
         vm.expectRevert(bytes("denylist is irreversible"));
         d.remove(bytes32(0));
     }
+
+    function testSetOwnerAndStrangerCannotAdd() public {
+        address timelock = address(0x71C0);
+        d.setOwner(timelock);
+        assertEq(d.owner(), timelock);
+        vm.expectRevert(bytes("not owner"));
+        d.addExact(keccak256("x"));
+        vm.prank(timelock);
+        d.addExact(keccak256("x"));
+        assertTrue(d.denylistedHashes(keccak256("x")));
+    }
 }

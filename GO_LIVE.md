@@ -17,7 +17,7 @@ This is what "live" means at each stage. Do not skip stages.
 
 ## Stage 2 — testnet contracts
 - [ ] `forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts`
-- [ ] Deploy `InsuranceFund` then `Liability`, `Denylist`, `Vault` to Base Sepolia (core `script/Deploy.s.sol` when present)
+- [ ] Deploy core stack with `script/Deploy.s.sol` (`CORE_TIMELOCK` required; Liability then InsuranceFund for immutable `onlyLiability`)
 - [ ] Deploy the additive BVT stack with `script/DeployBVT.s.sol` (agents do not `--broadcast`)
 - [ ] Record addresses in `deployments/base-sepolia.json` and `contracts/README.md`
 - [ ] Point the stamp API at those addresses

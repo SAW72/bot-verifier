@@ -60,8 +60,8 @@ interface IAuditorSlash {
     ) external;
 }
 
-/// @notice Future path: transfer Denylist/Vault `owner` to the BVT timelock so
-/// denylist upgrades and tier changes are proposal + delay, not a hot key.
+/// @notice Denylist / Vault / InsuranceFund / Liability / DisputePanel implement
+/// `setOwner`. `Deploy.s.sol` hands owner to `CORE_TIMELOCK`.
 interface IOwnableHook {
     function owner() external view returns (address);
 

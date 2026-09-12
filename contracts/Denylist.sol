@@ -18,6 +18,7 @@ contract Denylist {
 
     event Denylisted(bytes32 indexed hash, string kind, uint256 ts);
     event Checked(bytes32 indexed hash, MatchLevel level, uint256 ts);
+    event OwnerUpdated(address indexed previous, address indexed next);
 
     constructor() {
         owner = msg.sender;
@@ -26,6 +27,13 @@ contract Denylist {
     modifier onlyOwner() {
         require(msg.sender == owner, "not owner");
         _;
+    }
+
+    /// @notice Hand off to a timelock (or other owner). Matches IOwnableHook.
+    function setOwner(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "owner zero");
+        emit OwnerUpdated(owner, newOwner);
+        owner = newOwner;
     }
 
     /// @notice Irreversibly denylist an exact weight hash.

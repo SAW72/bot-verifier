@@ -57,8 +57,9 @@ forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
 forge build && forge test
 export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 # PRIVATE_KEY from env only — never commit
-forge script script/Deploy.s.sol:Deploy --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
-# Additive BVT stack (hardened roles; sinks default to timelock):
+# CORE_TIMELOCK = timelock/multisig that will own Denylist/Vault/Liability (≠ deployer)
+# forge script script/Deploy.s.sol:Deploy --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
+# Additive BVT stack (hardened roles; sinks default to timelock). BVT_GUARDIAN required (≠ deployer):
 # forge script script/DeployBVT.s.sol:DeployBVT --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
 ```
 

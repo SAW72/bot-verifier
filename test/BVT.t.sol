@@ -458,10 +458,43 @@ contract DeployBVTGuardTest is Test {
         assertEq(deploy.ALLOWED_CHAIN_ID(), 84532);
         assertEq(deploy.ETH_MAINNET_CHAIN_ID(), 1);
     }
+
+    function test_guardianUnsetReverts() public {
+        vm.expectRevert(bytes("DeployBVT: BVT_GUARDIAN unset"));
+        deploy.requireGuardian(address(this), address(0));
+    }
+
+    function test_guardianEqualsDeployerReverts() public {
+        vm.expectRevert(bytes("DeployBVT: BVT_GUARDIAN must not be deployer"));
+        deploy.requireGuardian(address(this), address(this));
+    }
+
+    function test_guardianOkWhenDistinctMultisig() public view {
+        deploy.requireGuardian(address(this), address(0x601D));
+    }
+
+    function test_readGuardianUnsetReverts() public {
+        vm.setEnv("BVT_GUARDIAN", vm.toString(address(0)));
+        vm.expectRevert(bytes("DeployBVT: BVT_GUARDIAN unset"));
+        deploy.readGuardian(address(this));
+    }
+
+    function test_readGuardianRejectsDeployer() public {
+        vm.setEnv("BVT_GUARDIAN", vm.toString(address(this)));
+        vm.expectRevert(bytes("DeployBVT: BVT_GUARDIAN must not be deployer"));
+        deploy.readGuardian(address(this));
+    }
+
+    function test_readGuardianAcceptsNonDeployer() public {
+        address guardian = address(0x601D);
+        vm.setEnv("BVT_GUARDIAN", vm.toString(guardian));
+        assertEq(deploy.readGuardian(address(this)), guardian);
+    }
 }
 
 /// @notice Production DeployBVT path: sinks default to timelock; deployer hot roles renounced.
-contract BVTHardenTest is Test {
+/// Inherits DeployBVT so `this.wireAndHarden` is called as the admin (same as broadcast).
+contract BVTHardenTest is Test, DeployBVT {
     BVT internal bvt;
     BVTStaking internal staking;
     BVTFeeRouter internal fees;
@@ -472,37 +505,11 @@ contract BVTHardenTest is Test {
     function setUp() public {
         deployer = address(this);
         bvt = new BVT(deployer);
-        timelock = new BVTTimelock(deployer, deployer);
+        timelock = new BVTTimelock(deployer, address(0x601D));
         staking = new BVTStaking(bvt, deployer, address(timelock));
         fees = new BVTFeeRouter(bvt, staking, deployer, address(timelock), address(timelock));
         governor = new BVTGovernor(staking, timelock, deployer);
-        _wireAndHarden();
-    }
-
-    function _wireAndHarden() internal {
-        bvt.grantRole(bvt.MINTER_ROLE(), address(staking));
-        bvt.grantRole(bvt.MINTER_ROLE(), address(fees));
-        bvt.grantRole(bvt.LOCKER_ROLE(), address(staking));
-        staking.grantRole(staking.BOOTSTRAP_ROLE(), address(timelock));
-        staking.grantRole(staking.SLASHER_ROLE(), address(timelock));
-        staking.grantRole(staking.REWARDER_ROLE(), address(fees));
-        staking.grantRole(staking.GOVERNANCE_ROLE(), address(timelock));
-        fees.grantRole(fees.GOVERNANCE_ROLE(), address(timelock));
-        fees.grantRole(fees.EARNER_ROLE(), address(timelock));
-        timelock.setGovernor(address(governor));
-
-        bytes32 adminRole = bvt.DEFAULT_ADMIN_ROLE();
-        bvt.grantRole(adminRole, address(timelock));
-        staking.grantRole(adminRole, address(timelock));
-        fees.grantRole(adminRole, address(timelock));
-        governor.setAdmin(address(timelock));
-        timelock.transferAdmin(address(timelock));
-        staking.renounceRole(staking.GOVERNANCE_ROLE(), deployer);
-        staking.renounceRole(adminRole, deployer);
-        fees.renounceRole(fees.EARNER_ROLE(), deployer);
-        fees.renounceRole(fees.GOVERNANCE_ROLE(), deployer);
-        fees.renounceRole(adminRole, deployer);
-        bvt.renounceRole(adminRole, deployer);
+        this.wireAndHarden(bvt, staking, fees, timelock, governor, deployer);
     }
 
     function test_sinksDefaultToTimelockNotDeployer() public view {
@@ -544,5 +551,18 @@ contract BVTHardenTest is Test {
         bytes32 minter = bvt.MINTER_ROLE();
         vm.expectRevert();
         bvt.grantRole(minter, deployer);
+    }
+
+    function test_assertFailsIfDeployerStillHoldsHotRoles() public {
+        BVT raw = new BVT(deployer);
+        BVTTimelock tl = new BVTTimelock(deployer, address(0x601D));
+        BVTStaking st = new BVTStaking(raw, deployer, address(tl));
+        BVTFeeRouter fr = new BVTFeeRouter(raw, st, deployer, address(tl), address(tl));
+        BVTGovernor gov = new BVTGovernor(st, tl, deployer);
+        this.wire(raw, st, fr, tl, gov, deployer);
+        vm.expectRevert(bytes("DeployBVT: deployer still DEFAULT_ADMIN on BVT"));
+        this.assertDeployerHasNoHotRoles(raw, st, fr, tl, gov, deployer);
+        this.harden(raw, st, fr, tl, gov, deployer);
+        this.assertDeployerHasNoHotRoles(raw, st, fr, tl, gov, deployer);
     }
 }

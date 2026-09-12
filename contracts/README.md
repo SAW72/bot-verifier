@@ -5,19 +5,21 @@ Working Solidity for the on-chain layers. **Testnet only.** Mainnet is refused b
 ## Files
 - `Denylist.sol` — irreversible denylist with graduated matching (exact / signature / prompt).
 - `Vault.sol` — trusted-bot registry with capability tiers and irreversible burn. Constructor: `Vault(denylist)`.
-- `InsuranceFund.sol` — fee-funded backstop. No constructor args.
-- `Liability.sol` — owner → auditor → insurance waterfall. Constructor: `Liability(insuranceFund)`.
-- `DisputePanel.sol` — 3-arbitrator resolution. No constructor args.
+- `InsuranceFund.sol` — fee-funded backstop. Constructor: `InsuranceFund(liability)` (immutable `onlyLiability` on `payout`).
+- `Liability.sol` — owner → auditor → insurance waterfall. Constructor: `Liability(insuranceFund)` or `Liability(address(0))` then `bindInsurance`.
+- `DisputePanel.sol` — 3-arbitrator resolution. Voters must be appointed and/or active staked auditors.
 
 ## Deploy order (dependency-correct)
 
-InsuranceFund must be created **before** Liability even though older notes listed Liability first.
+Liability is created first (with `address(0)` insurance) so `InsuranceFund` can freeze the Liability address as an immutable `onlyLiability` caller, then `bindInsurance` sets the reverse pointer. `CORE_TIMELOCK` (≠ deployer) receives `setOwner` on all five contracts.
 
 1. `Denylist`
 2. `Vault(denylist)`
-3. `InsuranceFund`
-4. `Liability(insuranceFund)`
-5. `DisputePanel`
+3. `Liability(address(0))`
+4. `InsuranceFund(liability)`
+5. `liability.bindInsurance(insurance)`
+6. `DisputePanel`
+7. `setOwner(CORE_TIMELOCK)` on Denylist, Vault, InsuranceFund, Liability, DisputePanel
 
 ## Chainid guard
 
@@ -44,12 +46,13 @@ forge install foundry-rs/forge-std
 
 export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 # PRIVATE_KEY is a Base Sepolia funded key — export it in your shell, do not commit it
+# CORE_TIMELOCK is a timelock or multisig (must not be the deployer) that receives ownership
 
 # compile + local tests (no RPC, no key)
 forge build
 forge test
 
-# simulate against Base Sepolia (no broadcast)
+# simulate against Base Sepolia (no broadcast). CORE_TIMELOCK required (≠ deployer).
 forge script script/Deploy.s.sol:Deploy --rpc-url "$BASE_SEPOLIA_RPC_URL"
 
 # YOU run this. Agents must not --broadcast.
@@ -100,7 +103,7 @@ Tokenomics (who mints, slash roles, fee sinks, delays): [`docs/BVT_TOKENOMICS.md
 
 Same chainid rules as the core script: Base Sepolia **84532** only; **mainnet always reverts**. Supply after deploy is **0**.
 
-**Roles:** `DeployBVT` **hardens** after wire: timelock holds `EARNER` / `BOOTSTRAP` / `SLASHER` / `DEFAULT_ADMIN`; deployer **renounces** those plus governance/admin. Sinks default to the **timelock**. Optional `BVT_GUARDIAN` may cancel during the delay. Long-lived/valued deploys: timelock + multisig only — see SECURITY in [`docs/BVT_TOKENOMICS.md`](../docs/BVT_TOKENOMICS.md#security).
+**Roles:** `DeployBVT.run` calls **`wireAndHarden`** (single path): timelock holds `EARNER` / `BOOTSTRAP` / `SLASHER` / `DEFAULT_ADMIN`; deployer **renounces** those plus governance/admin. Harden **reverts** if the deployer still holds any hot role. Sinks default to the **timelock**. **`BVT_GUARDIAN` is required** (non-zero, ≠ deployer — typically a multisig) and may cancel during the delay. Long-lived/valued deploys: timelock + multisig only — see SECURITY in [`docs/BVT_TOKENOMICS.md`](../docs/BVT_TOKENOMICS.md#security).
 
 ```bash
 forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
@@ -108,7 +111,8 @@ forge build && forge test
 
 export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 # PRIVATE_KEY from env only — never commit
-# optional: BVT_INSURANCE_SINK, BVT_TREASURY (default = timelock), BVT_GUARDIAN (default = deployer, cancel only)
+# required: BVT_GUARDIAN = non-deployer multisig (must not equal PRIVATE_KEY address)
+# optional: BVT_INSURANCE_SINK, BVT_TREASURY (default = timelock)
 
 # simulate
 forge script script/DeployBVT.s.sol:DeployBVT --rpc-url "$BASE_SEPOLIA_RPC_URL"

@@ -19,15 +19,20 @@ contract SmokeTest is Test {
     function setUp() public {
         denylist = new Denylist();
         vault = new Vault(address(denylist));
-        insurance = new InsuranceFund();
-        liability = new Liability(address(insurance));
+        liability = new Liability(address(0));
+        insurance = new InsuranceFund(address(liability));
+        liability.bindInsurance(address(insurance));
         panel = new DisputePanel();
+        panel.setArbitrator(address(this), true);
+        panel.setArbitrator(address(0x1), true);
+        panel.setArbitrator(address(0x2), true);
     }
 
     function test_deployOrderWiresDependencies() public view {
         assertEq(denylist.owner(), address(this));
         assertEq(address(vault.denylist()), address(denylist));
         assertEq(address(liability.insurance()), address(insurance));
+        assertEq(insurance.liability(), address(liability));
         assertEq(insurance.owner(), address(this));
         assertEq(panel.owner(), address(this));
     }
@@ -119,6 +124,52 @@ contract SmokeTest is Test {
         assertTrue(resolved);
         assertTrue(upheld);
     }
+
+    function test_unauthorizedVoterRejected() public {
+        bytes32 disputeId = keccak256("d-unauth");
+        panel.openDispute(disputeId, keccak256("subject"), "false flag");
+        vm.prank(address(0xBEEF));
+        vm.expectRevert(bytes("not authorized"));
+        panel.vote(disputeId, true);
+    }
+
+    function test_auditorSettleRevertsUntilSlashWired() public {
+        bytes32 claimId = keccak256("auditor-claim");
+        liability.fileClaim(
+            claimId, keccak256("bot"), keccak256("aud-inc"), payable(address(0xBEEF)), 1, Liability.Party.Auditor
+        );
+        vm.expectRevert(bytes("Liability: auditor slash/escrow unset"));
+        liability.settle(claimId);
+        (,,,,, bool paid,) = liability.claims(claimId);
+        assertFalse(paid);
+    }
+
+    function test_coreOwnershipHandoffToTimelock() public {
+        address timelock = address(0x71C0);
+        denylist.setOwner(timelock);
+        vault.setOwner(timelock);
+        insurance.setOwner(timelock);
+        liability.setOwner(timelock);
+        panel.setOwner(timelock);
+        assertEq(denylist.owner(), timelock);
+        assertEq(vault.owner(), timelock);
+        assertEq(insurance.owner(), timelock);
+        assertEq(liability.owner(), timelock);
+        assertEq(panel.owner(), timelock);
+        vm.expectRevert(bytes("not owner"));
+        denylist.addExact(keccak256("x"));
+        vm.expectRevert(bytes("not owner"));
+        vault.burn(keccak256("missing"));
+    }
+
+    function test_strangerCannotTakeOwnership() public {
+        vm.prank(address(0xBAD));
+        vm.expectRevert(bytes("not owner"));
+        denylist.setOwner(address(0xBAD));
+        vm.prank(address(0xBAD));
+        vm.expectRevert(bytes("not owner"));
+        vault.setOwner(address(0xBAD));
+    }
 }
 
 contract DeployGuardTest is Test {
@@ -154,5 +205,14 @@ contract DeployGuardTest is Test {
     function test_constantsDocumentEthSepolia() public view {
         assertEq(deploy.ETH_SEPOLIA_CHAIN_ID(), 11155111);
         assertEq(deploy.ALLOWED_CHAIN_ID(), 84532);
+    }
+
+    function test_timelockMustBeSetAndNotDeployer() public {
+        address deployer = address(this);
+        vm.expectRevert(bytes("Deploy: CORE_TIMELOCK unset"));
+        deploy.requireTimelock(deployer, address(0));
+        vm.expectRevert(bytes("Deploy: CORE_TIMELOCK must not be deployer"));
+        deploy.requireTimelock(deployer, deployer);
+        deploy.requireTimelock(deployer, address(0x71C0));
     }
 }

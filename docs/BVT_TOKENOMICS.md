@@ -31,11 +31,11 @@ Auditors lock BVT (`stake`) or are bootstrapped. **Active** iff `stake >= minSta
 
 ## Roles after `DeployBVT` (hardened)
 
-`wire` then `harden`: hot roles move to the **timelock**; the deployer EOA **renounces** `EARNER`, `BOOTSTRAP` (never granted to deployer), `SLASHER` (never granted to deployer), `GOVERNANCE`, and `DEFAULT_ADMIN`. Timelock admin and Governor admin become the timelock (`transferAdmin(address(this))`), so the deployer cannot `setGovernor`.
+`run` calls `wireAndHarden` (atomic): hot roles move to the **timelock**; the deployer EOA **renounces** `EARNER`, `BOOTSTRAP` (never granted to deployer), `SLASHER` (never granted to deployer), `GOVERNANCE`, and `DEFAULT_ADMIN`. Harden **reverts** if any of those remain on the deployer. Timelock admin and Governor admin become the timelock (`transferAdmin(address(this))`), so the deployer cannot `setGovernor`.
 
 Insurance / treasury sinks default to the **timelock** (not the deployer). Override with `BVT_INSURANCE_SINK` / `BVT_TREASURY`.
 
-The optional `BVT_GUARDIAN` (default: deployer) can still **cancel** a queued batch during the delay. That is the only remaining EOA lever.
+`BVT_GUARDIAN` is **required** (non-zero and ≠ deployer). It can **cancel** a queued batch during the delay. Do not default it to the deployer.
 
 ## SECURITY
 
