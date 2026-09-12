@@ -333,6 +333,17 @@ contract BVTTest is Test {
         assertEq(fees.feeOf(FeeKind.Audit), 250 ether);
     }
 
+    function test_cannotSetUnstakeCooldownBelowFloor() public {
+        staking.setUnstakeCooldown(2 hours);
+        assertEq(staking.unstakeCooldown(), 2 hours);
+        vm.expectRevert(bytes("Staking: cooldown floor"));
+        staking.setUnstakeCooldown(0);
+        vm.expectRevert(bytes("Staking: cooldown floor"));
+        staking.setUnstakeCooldown(1 hours - 1);
+        assertEq(staking.unstakeCooldown(), 2 hours);
+        assertEq(staking.MIN_UNSTAKE_COOLDOWN(), 1 hours);
+    }
+
     function test_belowThresholdCannotPropose() public {
         fees.awardUsage(alice, 100 ether, keccak256("dust"));
         vm.prank(alice);

@@ -100,6 +100,8 @@ Tokenomics (who mints, slash roles, fee sinks, delays): [`docs/BVT_TOKENOMICS.md
 
 Same chainid rules as the core script: Base Sepolia **84532** only; **mainnet always reverts**. Supply after deploy is **0**.
 
+**Roles:** on this Sepolia script the deployer keeps `DEFAULT_ADMIN`, `BOOTSTRAP_ROLE`, `SLASHER_ROLE`, and `EARNER_ROLE`. That is intentional for testnet. Before mainnet, move those to the timelock (slash → DisputePanel) and **renounce the deployer**. The script does not auto-renounce. Details: [`docs/BVT_TOKENOMICS.md`](../docs/BVT_TOKENOMICS.md#testnet-vs-mainnet-roles).
+
 ```bash
 forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
 forge build && forge test

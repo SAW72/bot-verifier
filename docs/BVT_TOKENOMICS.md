@@ -22,12 +22,26 @@ Auditors lock BVT (`stake`) or are bootstrapped. **Active** iff `stake >= minSta
 | Parameter | Default | Who changes it |
 | --- | --- | --- |
 | `minStake` | 10,000 BVT | Governance (timelock) |
-| `unstakeCooldown` | **48 hours** (dispute window) | Governance |
+| `unstakeCooldown` | **48 hours** (dispute window); floor **1 hour** — governance cannot set 0 | Governance |
 | Fake hash slash | **100%** + ban | `SLASHER_ROLE` executes; bps via governance |
 | Rigged scores slash | **100%** + ban | same |
 | Buried incidents slash | **50%** | same |
 
 **Slash roles:** `SLASHER_ROLE` on `BVTStaking`. Deploy grants it to the **timelock** (governed slashes) and the **deployer** on testnet so it can later be moved to `DisputePanel`. Governance can `unban`.
+
+## Testnet vs mainnet roles
+
+`script/DeployBVT.s.sol` is a **Sepolia** path. After broadcast the **deployer still holds**:
+
+| Role | Where |
+| --- | --- |
+| `DEFAULT_ADMIN_ROLE` | `BVT`, `BVTStaking`, `BVTFeeRouter` |
+| `BOOTSTRAP_ROLE` | `BVTStaking` |
+| `SLASHER_ROLE` | `BVTStaking` (timelock also has this) |
+| `EARNER_ROLE` | `BVTFeeRouter` (constructor; timelock also has this) |
+| Timelock `admin` + Governor `admin` | deployer |
+
+That is fine on Base Sepolia so Spencer can bootstrap operators and settle audits. **Before mainnet:** grant admin / bootstrap / earn / slash to the timelock (slash may go to `DisputePanel`), then the deployer must `renounceRole` / hand off timelock admin. The deploy script does **not** auto-renounce — do not treat a Sepolia deploy as mainnet-ready.
 
 Slashed tokens: **30% to the challenger** (if set), **remainder to `insuranceSink`**. No challenger → 100% to insurance.
 

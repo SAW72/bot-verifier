@@ -11,6 +11,13 @@ import { BVTGovernor } from "../contracts/bvt/BVTGovernor.sol";
 /// @notice Deploy the additive BVT stack. Does not touch Denylist/Vault/Liability.
 /// Chainid guard: Base Sepolia (84532) only. Mainnet (1) always reverts.
 /// Agents do not --broadcast. Spencer runs the broadcast command locally.
+///
+/// Testnet role graph (intentional): the deployer keeps DEFAULT_ADMIN on BVT,
+/// BVTStaking, and BVTFeeRouter, plus BOOTSTRAP_ROLE, SLASHER_ROLE, and
+/// EARNER_ROLE (constructor). Timelock also gets GOVERNANCE / SLASHER / EARNER.
+/// Before any mainnet discussion: grant those roles to the timelock (and
+/// DisputePanel for slash), then `renounceRole` the deployer keys. This script
+/// does not auto-renounce — Sepolia stays operable for Spencer.
 contract DeployBVT is Script {
     uint256 public constant BASE_SEPOLIA_CHAIN_ID = 84532;
     uint256 public constant ETH_SEPOLIA_CHAIN_ID = 11155111;
@@ -62,6 +69,8 @@ contract DeployBVT is Script {
     }
 
     /// @dev Shared wiring so tests can assert the same role graph as production deploy.
+    /// Deployer retains admin/bootstrap/slash/earn on testnet. Mainnet must
+    /// move those to the timelock (slash → DisputePanel) and renounce deployer.
     function wire(
         BVT bvt,
         BVTStaking staking,

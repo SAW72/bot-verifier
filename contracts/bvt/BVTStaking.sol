@@ -19,6 +19,8 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
 
     BVT public immutable bvt;
 
+    uint256 public constant MIN_UNSTAKE_COOLDOWN = 1 hours;
+
     uint256 public minStake = 10_000 ether;
     uint256 public unstakeCooldown = 48 hours;
     uint256 public totalStaked;
@@ -235,6 +237,7 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
     function setUnstakeCooldown(
         uint256 next
     ) external onlyRole(GOVERNANCE_ROLE) {
+        require(next >= MIN_UNSTAKE_COOLDOWN, "Staking: cooldown floor");
         unstakeCooldown = next;
         emit UnstakeCooldownUpdated(next);
     }
