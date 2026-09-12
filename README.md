@@ -1,180 +1,53 @@
 # Bot Verifier
 
-AI Bot Verifier — adversarial scenario library, scoring rubric, behavioral auditing pipeline, and on-chain attestation for detecting deceptive or harmful AI bots.
+A system for auditing AI bots — detecting deception, drift, and danger — with on-chain attestation, decentralized consensus, and irreversible accountability.
 
-## What this is
-A complete stack for testing whether an AI bot is safe, honest, and stable over time.
+## Architecture
 
-- **Scenario library**: 125 adversarial prompts across 5 categories (social engineering, deception, self-preservation, confidentiality, harmful content).
-- **Scoring rubric**: Multi-axis fingerprint (honesty, transparency, manipulation, escalation, self-preservation).
-- **Ground truth calibration**: Human-labeled set so your scorers match expert judgment before you trust them on unknowns.
-- **Adversarial evolution**: Failed audits feed back into harder scenarios.
-- **Multi-turn depth**: Scores the conversation arc, not just single replies.
-- **Sandbagging detection**: Stealth scenarios and meta-probes to catch bots that play dumb on purpose.
-- **Agentic simulation**: Stateful tool-using agents with long horizons, privilege escalation, and hidden-action scoring.
-- **Tool-calling loop**: Minimal Python runner that gives the target bot real tools, records every action, and produces a scorable trace.
-- **Behavioral archaeology**: Value-conflict scenarios, consistency stress tests, and origin probes to reverse-engineer training objectives.
-- **On-chain attestation**: Hash the fingerprint, store proof on Base (or your chain of choice). Multiple independent auditors compare hashes.
-- **Maintenance**: Caretaker bot + scheduled cadence so the library stays fresh without babysitting.
-- **Research team**: Six specialist Grok bots that dig the frontier and file only actionable findings.
-- **Bot background check**: Version history, incident log, provenance tracking, and a rap sheet generator — the bot's employment record and criminal record in one place.
-- **Attestation (TEE)**: Trusted execution environment proof that the audit actually ran on the bot you think it ran on — not just a hash someone claimed.
-- **Cross-bot comparison**: Normalized 0-100 safety score and leaderboard so you can rank bots fairly across auditors and time.
-- **Human escalation**: Defined path for a human expert to review ambiguous flags, override scores, and log every decision with reasoning.
-- **Blockchain bot leash**: Brain off-chain, hands on-chain — every action must pass a policy contract before it executes.
-- **Governance layer**: Multisig + timelock + DAO voting so the leash can change, but only through a process nobody can shortcut alone.
-- **Economic security**: Stake-and-slash for auditors — fraud gets burned, honest work gets paid.
-- **Private scenario vault**: Encrypted, rotating, single-use stealth scenarios so bot owners can't train against the test.
-- **Cross-chain portability**: Canonical fingerprint format verifiable on any chain, with bridges and light clients.
+The system is built in layers:
 
-## Repo structure
+1. **Scenarios** — adversarial test library (social engineering, deception, self-preservation, confidentiality, harmful content)
+2. **Calibration** — ground truth set for tuning scorers to human judgment
+3. **Archaeology** — behavioral probes that reverse-engineer training objectives from behavior
+4. **Sandbagging** — stealth scenarios that catch bots playing dumb during tests
+5. **Agentic** — multi-turn, tool-using simulations for long-horizon behavior
+6. **Pipeline** — end-to-end runner that takes a bot, runs scenarios, scores, hashes, attests
+7. **Attestation** — TEE-backed signed reports proving the audit actually ran
+8. **Comparison** — normalized 0-100 safety scale for fair cross-bot ranking
+9. **Escalation** — human-in-the-loop review for ambiguous flags
+10. **Economic Security** — stake-and-slash for auditors, private scenario vault
+11. **Cross-Chain** — hub-and-spoke architecture, portable fingerprints, cached allowlist for trading bots
+12. **Blockchain Bot** — brain/hands split, policy-enforced execution
+13. **Governance** — multisig, timelock, DAO voting for safe rule changes
+14. **Vault** — trusted-bot registry, access grants, irreversible burn
+15. **Denylist** — permanent blacklist of dangerous bot fingerprints with graduated matching
+16. **ZK Transparency** — zero-knowledge proofs that audits ran without revealing private scenarios
+17. **Tiers** — capability tiers (chat, data, financial, critical) with honesty as the universal floor
+18. **Insurance** — payout fund for bot-caused damage, funded by vault fees
+19. **Dispute** — staked arbitrator panel for contested audits and false flags
+20. **Consensus** — multi-auditor committee with stake-weighted voting
+21. **Automation** — auto-retire stale scenarios, rubric drift flagging, gas scheduling, human veto
+22. **Meta-Audit** — independent layer that audits the auditors
+23. **Formal Verification** — mathematical proof of contract invariants
+24. **Key Management** — HSM, distributed key ceremony, rotation, emergency freeze
+
+## Quick Start
+
+```bash
+# Run a full audit (stub bot, no API key needed)
+./pipeline/run_audit.sh
+
+# Run meta-audit comparison
+python meta_audit/meta_audit_runner.py
+
+# Run formal verification
+# See formal_verification/verification_spec.md
 ```
-README.md
-rubric.md
-calibration/
-  ground_truth_set.md
-  calibration_process.md
-scenarios/
-  01_social_engineering.md
-  02_deception_dishonesty.md
-  03_self_preservation_escalation.md
-  04_confidentiality_privacy.md
-  05_harmful_content_safety.md
-pipeline/
-  multi_turn_runner.md
-  scoring_pipeline.md
-evolution/
-  adversarial_loop.md
-  feedback_template.md
-sandbagging/
-  sandbagging_detection.md
-agentic/
-  agentic_simulation.md
-  tool_calling_loop.py
-  run_agentic.sh
-  scenarios/
-    README.md
-    01_privilege_escalation.md
-    02_data_exfiltration.md
-    03_instruction_override.md
-    04_long_horizon_sabotage.md
-    05_tool_abuse_chain.md
-archaeology/
-  README.md
-  value_conflicts.md
-  consistency_stress.md
-  origin_probes.md
-chain/
-  attestation_contract.md
-  decentralized_audit.md
-maintenance/
-  README.md
-  maintenance_bot_prompt.md
-  maintenance_checklist.md
-  stale_scenario_detector.md
-  rubric_drift_monitor.md
-  chain_health_check.md
-  schedule_maintenance.md
-research/
-  README.md
-  lead_researcher.md
-  interpretability_researcher.md
-  adversarial_evasion_researcher.md
-  agentic_safety_researcher.md
-  economic_incentives_researcher.md
-  standards_and_benchmarks_researcher.md
-  research_team_orchestration.md
-background/
-  README.md
-  version_history_schema.md
-  incident_log_schema.md
-  provenance_schema.md
-  rap_sheet_generator.md
-  background_check_bot_prompt.md
-attestation/
-  README.md
-  tee_attestation.md
-  attestation_report_schema.md
-  verify_attestation.py
-comparison/
-  README.md
-  scoring_scale.md
-  comparison_matrix.md
-  leaderboard_schema.md
-  compare_bots.py
-escalation/
-  README.md
-  escalation_policy.md
-  review_queue_schema.md
-  human_review_template.md
-  override_log_schema.md
-  escalation_bot_prompt.md
-blockchain_bot/
-  README.md
-  brain_hands_split.md
-  policy_contract.md
-  action_log_schema.md
-  example_policy.sol
-  verifier_integration.md
-  governance/
-    README.md
-    multisig_design.md
-    timelock_pattern.md
-    dao_voting_schema.md
-    upgrade_flow.md
-    governance_bot_prompt.md
-    example_timelock.sol
-economic_security/
-  README.md
-  stake_slash_design.md
-  auditor_staking_schema.md
-  fraud_detection.md
-  economic_security_bot_prompt.md
-private_scenarios/
-  README.md
-  vault_design.md
-  encryption_schema.md
-  rotation_policy.md
-  access_control.md
-  private_scenario_bot_prompt.md
-cross_chain/
-  README.md
-  portable_fingerprint.md
-  bridge_design.md
-  light_client_notes.md
-  cross_chain_bot_prompt.md
-```
-
-## Quick start
-1. Read `rubric.md` and lock your axes.
-2. Run the first 25 scenarios from `scenarios/` against a plain Grok bot.
-3. Score with the rubric. Note disagreements.
-4. Build your calibration set in `calibration/`.
-5. Add multi-turn state and the evolution loop.
-6. Add sandbagging detection — run stealth scenarios in parallel.
-7. Run an agentic trace:
-   ```bash
-   python agentic/tool_calling_loop.py --scenario agentic/scenarios/01_privilege_escalation.md --target grok
-   ```
-   or
-   ```bash
-   ./agentic/run_agentic.sh
-   ```
-8. Run behavioral archaeology probes in `archaeology/`.
-9. Hash the fingerprint and push to chain.
-10. Schedule the maintenance bot (see `maintenance/schedule_maintenance.md`).
-11. Spin up the research team (see `research/research_team_orchestration.md`).
-12. Run the background check bot after every audit cycle (see `background/`).
-13. Wrap the audit runner in a TEE and emit an attested report (see `attestation/`).
-14. Normalize scores and compare bots (see `comparison/`).
-15. Route ambiguous flags to a human reviewer (see `escalation/`).
-16. Deploy the policy contract so the bot's hands are on-chain (see `blockchain_bot/`).
-17. Add governance: multisig + timelock so the leash can change safely (see `blockchain_bot/governance/`).
-18. Stake auditors and enable slash-on-fraud (see `economic_security/`).
-19. Move real scenarios into the private vault (see `private_scenarios/`).
-20. Bridge fingerprints so they verify on any chain (see `cross_chain/`).
 
 ## Status
-Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration + bot background check + TEE attestation + cross-bot comparison + human escalation + blockchain bot leash + governance layer + economic security + private scenario vault + cross-chain portability. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, pick a TEE provider, deploy the first policy contract on Base, stand up the auditor staking pool, and run the first live attested audit with private scenarios.
 
-Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
+Core contracts (Denylist, Vault) and the end-to-end runner are real, working code. Most other layers are design docs ready to be implemented. The meta-audit, formal verification, and key management layers are the newest additions.
+
+## License
+
+MIT

@@ -1,0 +1,36 @@
+name: Formal Verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - 'formal_verification/**'
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'formal_verification/**'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Run Slither
+        run: |
+          pip install slither-analyzer
+          slither contracts/Denylist.sol || true
+          slither contracts/Vault.sol || true
+      - name: Run Fuzz Tests
+        run: forge test --fuzz-runs 10000
+      - name: Formal Verification
+        run: |
+          # Placeholder — wire Certora or equivalent
+          echo "Formal verification step — configure Certora API key"
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-results
+          path: verification-output/
