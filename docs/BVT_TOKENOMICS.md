@@ -27,21 +27,19 @@ Auditors lock BVT (`stake`) or are bootstrapped. **Active** iff `stake >= minSta
 | Rigged scores slash | **100%** + ban | same |
 | Buried incidents slash | **50%** | same |
 
-**Slash roles:** `SLASHER_ROLE` on `BVTStaking`. Deploy grants it to the **timelock** (governed slashes) and the **deployer** on testnet so it can later be moved to `DisputePanel`. Governance can `unban`.
+**Slash roles:** `SLASHER_ROLE` on `BVTStaking`. `DeployBVT` grants it to the **timelock only**, then the deployer renounces. Later grant it to `DisputePanel` via a timelocked admin call. Governance can `unban`.
 
-## Testnet vs mainnet roles
+## Roles after `DeployBVT` (hardened)
 
-`script/DeployBVT.s.sol` is a **Sepolia** path. After broadcast the **deployer still holds**:
+`wire` then `harden`: hot roles move to the **timelock**; the deployer EOA **renounces** `EARNER`, `BOOTSTRAP` (never granted to deployer), `SLASHER` (never granted to deployer), `GOVERNANCE`, and `DEFAULT_ADMIN`. Timelock admin and Governor admin become the timelock (`transferAdmin(address(this))`), so the deployer cannot `setGovernor`.
 
-| Role | Where |
-| --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `BVT`, `BVTStaking`, `BVTFeeRouter` |
-| `BOOTSTRAP_ROLE` | `BVTStaking` |
-| `SLASHER_ROLE` | `BVTStaking` (timelock also has this) |
-| `EARNER_ROLE` | `BVTFeeRouter` (constructor; timelock also has this) |
-| Timelock `admin` + Governor `admin` | deployer |
+Insurance / treasury sinks default to the **timelock** (not the deployer). Override with `BVT_INSURANCE_SINK` / `BVT_TREASURY`.
 
-That is fine on Base Sepolia so Spencer can bootstrap operators and settle audits. **Before mainnet:** grant admin / bootstrap / earn / slash to the timelock (slash may go to `DisputePanel`), then the deployer must `renounceRole` / hand off timelock admin. The deploy script does **not** auto-renounce — do not treat a Sepolia deploy as mainnet-ready.
+The optional `BVT_GUARDIAN` (default: deployer) can still **cancel** a queued batch during the delay. That is the only remaining EOA lever.
+
+## SECURITY
+
+A long-lived or valued deploy must be **timelock + multisig only**: set `BVT_GUARDIAN` to a multisig, keep sinks on the timelock or a dedicated vault, and do not re-grant `EARNER` / `BOOTSTRAP` / `SLASHER` / `DEFAULT_ADMIN` to an EOA. Sepolia is for exercising the stack through governance, not for a hot deployer key.
 
 Slashed tokens: **30% to the challenger** (if set), **remainder to `insuranceSink`**. No challenger → 100% to insurance.
 

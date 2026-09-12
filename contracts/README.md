@@ -100,7 +100,7 @@ Tokenomics (who mints, slash roles, fee sinks, delays): [`docs/BVT_TOKENOMICS.md
 
 Same chainid rules as the core script: Base Sepolia **84532** only; **mainnet always reverts**. Supply after deploy is **0**.
 
-**Roles:** on this Sepolia script the deployer keeps `DEFAULT_ADMIN`, `BOOTSTRAP_ROLE`, `SLASHER_ROLE`, and `EARNER_ROLE`. That is intentional for testnet. Before mainnet, move those to the timelock (slash → DisputePanel) and **renounce the deployer**. The script does not auto-renounce. Details: [`docs/BVT_TOKENOMICS.md`](../docs/BVT_TOKENOMICS.md#testnet-vs-mainnet-roles).
+**Roles:** `DeployBVT` **hardens** after wire: timelock holds `EARNER` / `BOOTSTRAP` / `SLASHER` / `DEFAULT_ADMIN`; deployer **renounces** those plus governance/admin. Sinks default to the **timelock**. Optional `BVT_GUARDIAN` may cancel during the delay. Long-lived/valued deploys: timelock + multisig only — see SECURITY in [`docs/BVT_TOKENOMICS.md`](../docs/BVT_TOKENOMICS.md#security).
 
 ```bash
 forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
@@ -108,7 +108,7 @@ forge build && forge test
 
 export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 # PRIVATE_KEY from env only — never commit
-# optional: BVT_INSURANCE_SINK, BVT_TREASURY, BVT_GUARDIAN (default = deployer)
+# optional: BVT_INSURANCE_SINK, BVT_TREASURY (default = timelock), BVT_GUARDIAN (default = deployer, cancel only)
 
 # simulate
 forge script script/DeployBVT.s.sol:DeployBVT --rpc-url "$BASE_SEPOLIA_RPC_URL"

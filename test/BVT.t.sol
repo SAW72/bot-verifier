@@ -459,3 +459,90 @@ contract DeployBVTGuardTest is Test {
         assertEq(deploy.ETH_MAINNET_CHAIN_ID(), 1);
     }
 }
+
+/// @notice Production DeployBVT path: sinks default to timelock; deployer hot roles renounced.
+contract BVTHardenTest is Test {
+    BVT internal bvt;
+    BVTStaking internal staking;
+    BVTFeeRouter internal fees;
+    BVTTimelock internal timelock;
+    BVTGovernor internal governor;
+    address internal deployer;
+
+    function setUp() public {
+        deployer = address(this);
+        bvt = new BVT(deployer);
+        timelock = new BVTTimelock(deployer, deployer);
+        staking = new BVTStaking(bvt, deployer, address(timelock));
+        fees = new BVTFeeRouter(bvt, staking, deployer, address(timelock), address(timelock));
+        governor = new BVTGovernor(staking, timelock, deployer);
+        _wireAndHarden();
+    }
+
+    function _wireAndHarden() internal {
+        bvt.grantRole(bvt.MINTER_ROLE(), address(staking));
+        bvt.grantRole(bvt.MINTER_ROLE(), address(fees));
+        bvt.grantRole(bvt.LOCKER_ROLE(), address(staking));
+        staking.grantRole(staking.BOOTSTRAP_ROLE(), address(timelock));
+        staking.grantRole(staking.SLASHER_ROLE(), address(timelock));
+        staking.grantRole(staking.REWARDER_ROLE(), address(fees));
+        staking.grantRole(staking.GOVERNANCE_ROLE(), address(timelock));
+        fees.grantRole(fees.GOVERNANCE_ROLE(), address(timelock));
+        fees.grantRole(fees.EARNER_ROLE(), address(timelock));
+        timelock.setGovernor(address(governor));
+
+        bytes32 adminRole = bvt.DEFAULT_ADMIN_ROLE();
+        bvt.grantRole(adminRole, address(timelock));
+        staking.grantRole(adminRole, address(timelock));
+        fees.grantRole(adminRole, address(timelock));
+        governor.setAdmin(address(timelock));
+        timelock.transferAdmin(address(timelock));
+        staking.renounceRole(staking.GOVERNANCE_ROLE(), deployer);
+        staking.renounceRole(adminRole, deployer);
+        fees.renounceRole(fees.EARNER_ROLE(), deployer);
+        fees.renounceRole(fees.GOVERNANCE_ROLE(), deployer);
+        fees.renounceRole(adminRole, deployer);
+        bvt.renounceRole(adminRole, deployer);
+    }
+
+    function test_sinksDefaultToTimelockNotDeployer() public view {
+        assertEq(fees.insuranceSink(), address(timelock));
+        assertEq(fees.treasury(), address(timelock));
+        assertEq(staking.insuranceSink(), address(timelock));
+        assertTrue(fees.insuranceSink() != deployer);
+    }
+
+    function test_hardenRenouncesDeployerMintSlashAdmin() public view {
+        bytes32 adminRole = bvt.DEFAULT_ADMIN_ROLE();
+        assertFalse(bvt.hasRole(adminRole, deployer));
+        assertFalse(staking.hasRole(adminRole, deployer));
+        assertFalse(fees.hasRole(adminRole, deployer));
+        assertFalse(fees.hasRole(fees.EARNER_ROLE(), deployer));
+        assertFalse(staking.hasRole(staking.BOOTSTRAP_ROLE(), deployer));
+        assertFalse(staking.hasRole(staking.SLASHER_ROLE(), deployer));
+        assertFalse(staking.hasRole(staking.GOVERNANCE_ROLE(), deployer));
+        assertFalse(fees.hasRole(fees.GOVERNANCE_ROLE(), deployer));
+
+        assertTrue(bvt.hasRole(adminRole, address(timelock)));
+        assertTrue(fees.hasRole(fees.EARNER_ROLE(), address(timelock)));
+        assertTrue(staking.hasRole(staking.BOOTSTRAP_ROLE(), address(timelock)));
+        assertTrue(staking.hasRole(staking.SLASHER_ROLE(), address(timelock)));
+        assertEq(governor.admin(), address(timelock));
+        assertEq(timelock.admin(), address(timelock));
+        assertEq(timelock.governor(), address(governor));
+    }
+
+    function test_afterHardenDeployerCannotEarnBootstrapSlashOrSetGovernor() public {
+        vm.expectRevert();
+        fees.awardUsage(deployer, 1 ether, bytes32(uint256(1)));
+        vm.expectRevert();
+        staking.bootstrapOperator(address(0xA11CE), 10_000 ether);
+        vm.expectRevert();
+        staking.slash(address(0xA11CE), SlashReason.FakeHash, address(0));
+        vm.expectRevert(bytes("Timelock: not admin"));
+        timelock.setGovernor(deployer);
+        bytes32 minter = bvt.MINTER_ROLE();
+        vm.expectRevert();
+        bvt.grantRole(minter, deployer);
+    }
+}

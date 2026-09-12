@@ -81,6 +81,17 @@ contract BVTTimelock {
         emit AdminUpdated(_admin);
     }
 
+    /// @notice One-way handoff after `setGovernor`. Typical: `transferAdmin(address(this))`
+    /// so the deployer can no longer call `setGovernor`.
+    function transferAdmin(
+        address newAdmin
+    ) external onlyAdmin {
+        require(newAdmin != address(0), "Timelock: admin zero");
+        require(governor != address(0), "Timelock: no governor");
+        admin = newAdmin;
+        emit AdminUpdated(newAdmin);
+    }
+
     function setDelay(
         uint256 next
     ) external onlySelf {
