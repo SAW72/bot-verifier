@@ -51,7 +51,7 @@ from pipeline.security import (
 
 DISCLAIMER_TEXT = (
     "Bot Verifier stamps are experimental informational signals only. "
-    "They are not a certification, safety guarantee, or insurance. "
+    "They are not a certification, not a safety guarantee, and not insurance. "
     "Scores and denylists are point-in-time heuristics that may be wrong, "
     "gamed, or stale. TEE/attestation may be a stub. Contracts may be unaudited. "
     "See DISCLAIMER.md, TERMS.md, and PRIVACY.md."
