@@ -21,6 +21,8 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - **Attestation (TEE)**: Trusted execution environment proof that the audit actually ran on the bot you think it ran on — not just a hash someone claimed.
 - **Cross-bot comparison**: Normalized 0-100 safety score and leaderboard so you can rank bots fairly across auditors and time.
 - **Human escalation**: Defined path for a human expert to review ambiguous flags, override scores, and log every decision with reasoning.
+- **Blockchain bot leash**: Brain off-chain, hands on-chain — every action must pass a policy contract before it executes.
+- **Governance layer**: Multisig + timelock + DAO voting so the leash can change, but only through a process nobody can shortcut alone.
 
 ## Repo structure
 ```
@@ -104,6 +106,21 @@ escalation/
   human_review_template.md
   override_log_schema.md
   escalation_bot_prompt.md
+blockchain_bot/
+  README.md
+  brain_hands_split.md
+  policy_contract.md
+  action_log_schema.md
+  example_policy.sol
+  verifier_integration.md
+  governance/
+    README.md
+    multisig_design.md
+    timelock_pattern.md
+    dao_voting_schema.md
+    upgrade_flow.md
+    governance_bot_prompt.md
+    example_timelock.sol
 ```
 
 ## Quick start
@@ -129,8 +146,10 @@ escalation/
 13. Wrap the audit runner in a TEE and emit an attested report (see `attestation/`).
 14. Normalize scores and compare bots (see `comparison/`).
 15. Route ambiguous flags to a human reviewer (see `escalation/`).
+16. Deploy the policy contract so the bot's hands are on-chain (see `blockchain_bot/`).
+17. Add governance: multisig + timelock so the leash can change safely (see `blockchain_bot/governance/`).
 
 ## Status
-Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration + bot background check + TEE attestation + cross-bot comparison + human escalation. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, pick a TEE provider, and run the first live attested audit.
+Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration + bot background check + TEE attestation + cross-bot comparison + human escalation + blockchain bot leash + governance layer. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, pick a TEE provider, deploy the first policy contract on Base, and run the first live attested audit.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
