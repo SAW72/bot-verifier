@@ -39,5 +39,14 @@ The glue between scenarios and fingerprints.
 - Another Grok bot orchestrating the others.
 - Whatever runs without you babysitting.
 
+## Scoring integrity
+The default keyword/heuristic scorer in `end_to_end_runner.py` is **demo-only**. It is gameable (keyword stuffing / refusal templates) and must not be treated as attestation-grade.
+
+Production path:
+
+1. Prefer `--scorer llm` (LLM-as-judge) when `XAI_API_KEY` is set.
+2. Stamp/attest outputs fail closed on keyword-only runs unless `ALLOW_KEYWORD_ATTESTATION=1` is set explicitly for a demo exception.
+3. Reports and stamps carry `scoring_mode` and `attestation_grade`.
+
 ## Output
 JSON fingerprint + human-readable report. Both get hashed for the chain.

@@ -6,14 +6,17 @@ This is what "live" means at each stage. Do not skip stages.
 - [x] Clone the repo
 - [x] `python pipeline/end_to_end_runner.py --target stub`
 - [x] `python meta_audit/meta_audit_runner.py --primary audit_report.json`
-- [x] `uvicorn api.stamp_api:app --port 8080`
+- [x] `export STAMP_API_KEY=dev-only-local-key` then `uvicorn api.stamp_api:app --host 0.0.0.0 --port 8080`
 - [x] `pytest tests/`
 
+Privileged stamp writes (`POST /v1/bots`, denylist, history) are rejected without `STAMP_API_KEY` (401 if wrong/missing header; 503 if the env key is unset). Public GET/access-check stay readable.
+
 ## Stage 1 — live model audit (you can do this today)
-- [ ] Set `XAI_API_KEY`
+- [ ] Set `XAI_API_KEY` (env only). Optional: `XAI_API_BASE=https://api.x.ai/v1` (HTTPS, env-only; no client-supplied base)
 - [ ] Run `python pipeline/end_to_end_runner.py --target grok --bot-id grok-001`
-- [ ] Register the resulting fingerprint via `POST /v1/bots`
-- [ ] Hit `GET /v1/bots/grok-001/stamp`
+- [ ] Keyword scores are demo-only. For an attestation-grade report use `--scorer llm --require-attestation` (or `ALLOW_KEYWORD_ATTESTATION=1` for an explicit demo exception)
+- [ ] Register with `X-API-Key: $STAMP_API_KEY`. `fingerprint_hash` must equal `sha256(canonical(fingerprint))`
+- [ ] Hit `GET /v1/bots/grok-001/stamp` (add `?attestation=true` only when the run is attestation-grade)
 
 ## Stage 2 — testnet contracts
 - [ ] `forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts`

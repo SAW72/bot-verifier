@@ -49,6 +49,15 @@ XAI_API_KEY=… python pipeline/end_to_end_runner.py --target grok --scenarios-d
 
 Default model: `grok-4-1-fast` (override with `XAI_MODEL` or `--model`, e.g. `grok-4.6` or `grok-3-mini`). Alias: `GROK_API_KEY`. Stub still works with no key: `./pipeline/run_audit.sh`.
 
+xAI base URL is env-only: `XAI_API_BASE` (default `https://api.x.ai/v1`). Do not pass a client/CLI base — that is rejected (SSRF). HTTPS only; no credentials in the URL.
+
+The built-in **keyword scorer is demo-only** and not attestation-grade. `POST /v1/bots` and `--require-attestation` fail closed on keyword scores unless you set `ALLOW_KEYWORD_ATTESTATION=1`. Optional LLM-as-judge: `--scorer llm` (requires `XAI_API_KEY`).
+
+### Stamp API auth
+Privileged writes (`POST /v1/bots`, denylist writes, history append) require `STAMP_API_KEY`. Send `X-API-Key` or `Authorization: Bearer <key>`. Public reads (`GET` stamp/bot/denylist, `POST /v1/access/check`) stay open. Unset key → privileged writes return 503.
+
+On register the server recomputes `sha256(canonical(fingerprint))` and rejects a mismatched `fingerprint_hash`. Conversation / rap-sheet history is capped and operator-isolated (`system` role is not accepted from untrusted clients).
+
 ### Contracts (Base Sepolia, chainid 84532)
 Agents do **not** broadcast. Spencer deploys with his key:
 
