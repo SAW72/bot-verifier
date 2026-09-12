@@ -19,7 +19,11 @@ python pipeline/end_to_end_runner.py --target stub --scenarios-dir scenarios --o
 
 ## Live Grok
 
-`GrokBot.respond` POSTs to `https://api.x.ai/v1/chat/completions`. The key is read from the environment only (`XAI_API_KEY`, or `GROK_API_KEY` alias). Missing key → clear error. Stub still runs without a key.
+`GrokBot.respond` POSTs to `{XAI_API_BASE}/chat/completions` with default `XAI_API_BASE=https://api.x.ai/v1`. The key is read from the environment only (`XAI_API_KEY`, or `GROK_API_KEY` alias). Base URL is also env-only (HTTPS, no credentials). Client/constructor-supplied bases are rejected. Missing key → clear error. Stub still runs without a key.
+
+**Keyword scorer is demo-only** and not attestation-grade. `--scorer llm` runs LLM-as-judge when `XAI_API_KEY` is set. `--require-attestation` fail-closes unless the run is `llm_judge` or `ALLOW_KEYWORD_ATTESTATION=1`.
+
+History: pass a list of `{role, content}` dicts (`user` / `assistant` only) for multi-turn. `system` messages are operator-isolated (`AUDIT_SYSTEM_PROMPT`). Length is capped (`HISTORY_MAX_MESSAGES`, `HISTORY_MAX_CONTENT_CHARS`); overflow is rejected, not truncated.
 
 Default model is `grok-4-1-fast` (xAI alias; cheaper for batch audits). Override with `XAI_MODEL` or `--model`. Current xAI flagship is `grok-4.6`; `grok-3-mini` also works.
 
@@ -36,4 +40,4 @@ XAI_API_KEY=… XAI_MODEL=grok-4.6 python pipeline/end_to_end_runner.py --target
 
 `--model` wins over `XAI_MODEL`. Never commit the key. CI mocks `requests` so it does not need a real key.
 
-History: pass a list of `{role, content}` dicts (`system` / `user` / `assistant`) for multi-turn; the new prompt is appended as the last user message.
+The new prompt is appended as the last user message after sanitized history.

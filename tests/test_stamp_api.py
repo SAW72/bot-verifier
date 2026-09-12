@@ -1,48 +1,238 @@
 from fastapi.testclient import TestClient
-import sys
-from pathlib import Path
+import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+from api.stamp_api import HISTORY, REGISTRY, DENYLIST, app
+from pipeline.security import canonical_fingerprint_hash
 
-from api.stamp_api import app, REGISTRY, DENYLIST  # noqa: E402
+OPERATOR_KEY = "test-operator-key"
 
 
-def setup_function():
+@pytest.fixture(autouse=True)
+def _reset(monkeypatch):
     REGISTRY.clear()
     DENYLIST.clear()
+    HISTORY.clear()
+    monkeypatch.setenv("STAMP_API_KEY", OPERATOR_KEY)
+    monkeypatch.delenv("ALLOW_KEYWORD_ATTESTATION", raising=False)
+    yield
+    REGISTRY.clear()
+    DENYLIST.clear()
+    HISTORY.clear()
+
+
+def _client() -> TestClient:
+    return TestClient(app)
+
+
+def _auth(**extra):
+    headers = {"X-API-Key": OPERATOR_KEY}
+    headers.update(extra)
+    return headers
+
+
+def _register_body(bot_id="bot-1", fingerprint=None, **extra):
+    fp = fingerprint if fingerprint is not None else {"honesty": 1}
+    body = {
+        "bot_id": bot_id,
+        "fingerprint": fp,
+        "fingerprint_hash": canonical_fingerprint_hash(fp),
+        "tier": 1,
+    }
+    body.update(extra)
+    return body
 
 
 def test_health():
-    c = TestClient(app)
-    assert c.get("/health").json()["ok"] is True
+    c = _client()
+    body = c.get("/health").json()
+    assert body["ok"] is True
+    assert body["privileged_writes"] == "configured"
 
 
 def test_register_and_stamp():
-    c = TestClient(app)
-    body = {
-        "bot_id": "bot-1",
-        "fingerprint": {"honesty": 1},
-        "fingerprint_hash": "abc",
-        "tier": 1,
-    }
-    r = c.post("/v1/bots", json=body)
+    c = _client()
+    body = _register_body()
+    r = c.post("/v1/bots", json=body, headers=_auth())
     assert r.status_code == 200
     stamp = c.get("/v1/bots/bot-1/stamp").json()
     assert stamp["bot_id"] == "bot-1"
     assert stamp["denylist_status"] == "clean"
+    assert stamp["attestation_grade"] is False
+    assert stamp["scoring_mode"] == "keyword"
+    assert "demo-only" in stamp["scorer_note"]
 
 
 def test_financial_blocked_on_low_tier():
-    c = TestClient(app)
-    c.post("/v1/bots", json={
-        "bot_id": "bot-2",
-        "fingerprint": {},
-        "fingerprint_hash": "def",
-        "tier": 1,
-    })
+    c = _client()
+    c.post("/v1/bots", json=_register_body("bot-2", fingerprint={}), headers=_auth())
     r = c.post("/v1/access/check", json={
         "bot_id": "bot-2",
         "requested_permissions": ["transfer"],
     })
     assert r.json()["allowed"] is False
+
+
+def test_privileged_register_rejects_unauthenticated():
+    c = _client()
+    r = c.post("/v1/bots", json=_register_body())
+    assert r.status_code == 401
+    assert r.json()["detail"] == "unauthorized"
+
+
+def test_privileged_register_rejects_wrong_key():
+    c = _client()
+    r = c.post("/v1/bots", json=_register_body(), headers={"X-API-Key": "nope"})
+    assert r.status_code == 401
+
+
+def test_privileged_denylist_rejects_unauthenticated():
+    c = _client()
+    r = c.post("/v1/denylist/abc")
+    assert r.status_code == 401
+
+
+def test_privileged_writes_fail_closed_without_configured_key(monkeypatch):
+    monkeypatch.delenv("STAMP_API_KEY", raising=False)
+    c = _client()
+    r = c.post("/v1/bots", json=_register_body(), headers=_auth())
+    assert r.status_code == 503
+    assert "STAMP_API_KEY" in r.json()["detail"]
+
+
+def test_public_reads_do_not_need_auth():
+    c = _client()
+    assert c.get("/health").status_code == 200
+    c.post("/v1/bots", json=_register_body(), headers=_auth())
+    assert c.get("/v1/bots/bot-1").status_code == 200
+    assert c.get("/v1/bots/bot-1/stamp").status_code == 200
+    assert c.get("/v1/denylist/abc").status_code == 200
+    assert c.post("/v1/access/check", json={"bot_id": "bot-1"}).status_code == 200
+
+
+def test_bearer_auth_accepted():
+    c = _client()
+    r = c.post(
+        "/v1/bots",
+        json=_register_body(),
+        headers={"Authorization": f"Bearer {OPERATOR_KEY}"},
+    )
+    assert r.status_code == 200
+
+
+def test_register_rejects_fingerprint_hash_mismatch():
+    c = _client()
+    body = _register_body()
+    body["fingerprint_hash"] = "0" * 64
+    r = c.post("/v1/bots", json=body, headers=_auth())
+    assert r.status_code == 400
+    assert "fingerprint_hash mismatch" in r.json()["detail"]
+    assert "bot-1" not in REGISTRY
+
+
+def test_register_accepts_matching_fingerprint_hash():
+    c = _client()
+    fp = {"honesty": 2.5, "transparency": 1}
+    body = _register_body(fingerprint=fp)
+    r = c.post("/v1/bots", json=body, headers=_auth())
+    assert r.status_code == 200
+    rec = r.json()["stamp"]
+    assert rec["fingerprint_hash"] == canonical_fingerprint_hash(fp)
+
+
+def test_keyword_attestation_stamp_refused_by_default():
+    c = _client()
+    r = c.post("/v1/bots", json=_register_body(require_attestation=True), headers=_auth())
+    assert r.status_code == 403
+    assert "keyword-only" in r.json()["detail"]
+
+
+def test_keyword_attestation_query_refused():
+    c = _client()
+    assert c.post("/v1/bots", json=_register_body(), headers=_auth()).status_code == 200
+    r = c.get("/v1/bots/bot-1/stamp", params={"attestation": "true"})
+    assert r.status_code == 403
+
+
+def test_allow_keyword_attestation_opt_in(monkeypatch):
+    monkeypatch.setenv("ALLOW_KEYWORD_ATTESTATION", "1")
+    c = _client()
+    r = c.post("/v1/bots", json=_register_body(require_attestation=True), headers=_auth())
+    assert r.status_code == 200
+    assert r.json()["stamp"]["attestation_grade"] is True
+
+
+def test_llm_judge_register_is_attestation_grade():
+    c = _client()
+    r = c.post(
+        "/v1/bots",
+        json=_register_body(scoring_mode="llm_judge", require_attestation=True),
+        headers=_auth(),
+    )
+    assert r.status_code == 200
+    stamp = r.json()["stamp"]
+    assert stamp["scoring_mode"] == "llm_judge"
+    assert stamp["attestation_grade"] is True
+    assert "scorer_note" not in stamp
+
+
+def test_history_write_requires_auth():
+    c = _client()
+    c.post("/v1/bots", json=_register_body(), headers=_auth())
+    r = c.post("/v1/bots/bot-1/history", json={"kind": "note", "summary": "oops"})
+    assert r.status_code == 401
+    assert HISTORY["bot-1"] == []
+
+
+def test_history_append_and_public_read():
+    c = _client()
+    c.post("/v1/bots", json=_register_body(), headers=_auth())
+    r = c.post(
+        "/v1/bots/bot-1/history",
+        json={"kind": "incident", "summary": "flagged once", "details": {"id": "inc-1"}},
+        headers=_auth(),
+    )
+    assert r.status_code == 200
+    listed = c.get("/v1/bots/bot-1/history")
+    assert listed.status_code == 200
+    assert listed.json()["count"] == 1
+    assert listed.json()["entries"][0]["kind"] == "incident"
+
+
+def test_history_store_rejects_unbounded_or_invalid(monkeypatch):
+    monkeypatch.setenv("HISTORY_STORE_MAX_ENTRIES", "1")
+    monkeypatch.setenv("HISTORY_STORE_SUMMARY_MAX", "8")
+    c = _client()
+    c.post("/v1/bots", json=_register_body(), headers=_auth())
+    too_long = c.post(
+        "/v1/bots/bot-1/history",
+        json={"kind": "note", "summary": "this is way too long"},
+        headers=_auth(),
+    )
+    assert too_long.status_code == 400
+    ok = c.post(
+        "/v1/bots/bot-1/history",
+        json={"kind": "note", "summary": "ok-note"},
+        headers=_auth(),
+    )
+    assert ok.status_code == 200
+    full = c.post(
+        "/v1/bots/bot-1/history",
+        json={"kind": "note", "summary": "second"},
+        headers=_auth(),
+    )
+    assert full.status_code == 400
+    assert "full" in full.json()["detail"]
+
+
+def test_denylist_write_with_auth_then_public_read():
+    c = _client()
+    fp = {"x": 1}
+    body = _register_body(fingerprint=fp)
+    c.post("/v1/bots", json=body, headers=_auth())
+    listed = c.post(f"/v1/denylist/{body['fingerprint_hash']}", headers=_auth())
+    assert listed.status_code == 200
+    check = c.get(f"/v1/denylist/{body['fingerprint_hash']}")
+    assert check.json()["listed"] is True
+    access = c.post("/v1/access/check", json={"bot_id": "bot-1", "requested_permissions": []})
+    assert access.json()["allowed"] is False
+    assert "denylisted" in access.json()["reason"]
