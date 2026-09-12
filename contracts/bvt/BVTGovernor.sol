@@ -40,6 +40,7 @@ contract BVTGovernor {
         uint256 forVotes;
         uint256 againstVotes;
         uint256 snapshotStaked;
+        uint256 snapshotBlock;
         uint256 batchId;
         bool queued;
         bool cancelled;
@@ -92,14 +93,34 @@ contract BVTGovernor {
             uint256 forVotes,
             uint256 againstVotes,
             uint256 snapshotStaked,
+            uint256 snapshotBlock,
             uint256 batchId,
             bool queued,
             bool cancelled
         )
     {
         Proposal storage p = _proposals[id];
-        return
-            (p.proposer, p.start, p.end, p.forVotes, p.againstVotes, p.snapshotStaked, p.batchId, p.queued, p.cancelled);
+        return (
+            p.proposer,
+            p.start,
+            p.end,
+            p.forVotes,
+            p.againstVotes,
+            p.snapshotStaked,
+            p.snapshotBlock,
+            p.batchId,
+            p.queued,
+            p.cancelled
+        );
+    }
+
+    function snapshotWeight(
+        uint256 id,
+        address voter
+    ) public view returns (uint256) {
+        Proposal storage p = _proposals[id];
+        require(p.end != 0, "Governor: unknown");
+        return staking.stakeOfAt(voter, p.snapshotBlock);
     }
 
     function propose(
@@ -118,7 +139,8 @@ contract BVTGovernor {
         }
         p.start = block.timestamp;
         p.end = block.timestamp + votingPeriod;
-        p.snapshotStaked = staking.totalStaked();
+        p.snapshotBlock = block.number;
+        p.snapshotStaked = staking.totalStakedAt(p.snapshotBlock);
         p.descriptionHash = keccak256(bytes(description));
         require(p.snapshotStaked > 0, "Governor: no stake");
         emit ProposalCreated(id, msg.sender, targets, description, p.end);
@@ -132,8 +154,8 @@ contract BVTGovernor {
         require(p.end != 0, "Governor: unknown");
         require(block.timestamp >= p.start && block.timestamp < p.end, "Governor: not active");
         require(!hasVoted[id][msg.sender], "Governor: voted");
-        uint256 weight = staking.stakeOf(msg.sender);
-        require(weight > 0, "Governor: no stake");
+        uint256 weight = staking.stakeOfAt(msg.sender, p.snapshotBlock);
+        require(weight > 0, "Governor: no snapshot stake");
         hasVoted[id][msg.sender] = true;
         if (support) p.forVotes += weight;
         else p.againstVotes += weight;

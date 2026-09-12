@@ -114,9 +114,27 @@ contract BVTTest is Test {
         uint256 beforeBal = bvt.balanceOf(alice);
         fees.settleAudit(botId, alice, 0);
         assertEq(bvt.balanceOf(alice), beforeBal + fees.usageReward());
+        assertTrue(fees.isSettled(botId));
         (,,, uint256 audits,, bool active,) = staking.auditors(alice);
         assertEq(audits, 1);
         assertTrue(active);
+    }
+
+    function test_settleAuditIsOneShot() public {
+        staking.bootstrapOperator(alice, MIN_STAKE);
+        fees.awardUsage(bob, 250 ether, keccak256("seed"));
+        bytes32 botId = keccak256("bot-oneshot");
+        vm.startPrank(bob);
+        bvt.approve(address(fees), type(uint256).max);
+        fees.payAudit(botId, alice);
+        vm.stopPrank();
+
+        fees.settleAudit(botId, alice, 10 ether);
+        assertTrue(fees.isSettled(botId));
+        uint256 afterFirst = bvt.balanceOf(alice);
+        vm.expectRevert(bytes("Fee: already settled"));
+        fees.settleAudit(botId, alice, 10 ether);
+        assertEq(bvt.balanceOf(alice), afterFirst);
     }
 
     function test_settleAuditRequiresPaidFee() public {
@@ -326,6 +344,71 @@ contract BVTTest is Test {
         vm.prank(alice);
         vm.expectRevert(bytes("Governor: threshold"));
         governor.propose(targets, data, "nope");
+    }
+
+    function test_voteWeightUsesProposeSnapshotAfterUnstake() public {
+        staking.bootstrapOperator(alice, MIN_STAKE);
+        staking.bootstrapOperator(bob, MIN_STAKE);
+
+        (address[] memory targets, bytes[] memory data) = _dummyProposal();
+        vm.prank(alice);
+        uint256 id = governor.propose(targets, data, "snapshot after unstake");
+        assertEq(governor.snapshotWeight(id, alice), MIN_STAKE);
+
+        vm.roll(block.number + 1);
+        vm.prank(alice);
+        staking.requestUnstake(MIN_STAKE);
+        assertEq(staking.stakeOf(alice), 0);
+        assertEq(governor.snapshotWeight(id, alice), MIN_STAKE);
+
+        vm.prank(alice);
+        governor.vote(id, true);
+        (,,, uint256 forVotes,,,,,,) = governor.proposals(id);
+        assertEq(forVotes, MIN_STAKE);
+    }
+
+    function test_cannotInflateVoteWeightAfterPropose() public {
+        staking.bootstrapOperator(alice, MIN_STAKE);
+        staking.bootstrapOperator(bob, MIN_STAKE);
+
+        (address[] memory targets, bytes[] memory data) = _dummyProposal();
+        vm.prank(alice);
+        uint256 id = governor.propose(targets, data, "no inflate");
+
+        vm.roll(block.number + 1);
+        staking.bootstrapOperator(alice, MIN_STAKE);
+        assertEq(staking.stakeOf(alice), 2 * MIN_STAKE);
+        assertEq(governor.snapshotWeight(id, alice), MIN_STAKE);
+
+        vm.prank(alice);
+        governor.vote(id, true);
+        (,,, uint256 forVotes,,,,,,) = governor.proposals(id);
+        assertEq(forVotes, MIN_STAKE);
+    }
+
+    function test_unstakeAfterVoteDoesNotChangeTally() public {
+        staking.bootstrapOperator(alice, MIN_STAKE);
+        staking.bootstrapOperator(bob, MIN_STAKE);
+
+        (address[] memory targets, bytes[] memory data) = _dummyProposal();
+        vm.prank(alice);
+        uint256 id = governor.propose(targets, data, "unstake after vote");
+        vm.prank(alice);
+        governor.vote(id, true);
+
+        vm.roll(block.number + 1);
+        vm.prank(alice);
+        staking.requestUnstake(MIN_STAKE);
+        (,,, uint256 forVotes,,,,,,) = governor.proposals(id);
+        assertEq(forVotes, MIN_STAKE);
+        assertEq(staking.stakeOf(alice), 0);
+    }
+
+    function _dummyProposal() internal view returns (address[] memory targets, bytes[] memory data) {
+        targets = new address[](1);
+        data = new bytes[](1);
+        targets[0] = address(fees);
+        data[0] = abi.encodeWithSelector(BVTFeeRouter.setFee.selector, FeeKind.Audit, uint256(1 ether));
     }
 }
 

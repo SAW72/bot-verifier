@@ -31,6 +31,7 @@ contract BVTFeeRouter is AccessControl, IBVTFeeGate {
     mapping(uint8 => uint256) public vaultFeeByTier; // Vault.Tier ordinal
     mapping(bytes32 => mapping(FeeKind => bool)) internal _paid;
     mapping(bytes32 => uint8) internal _vaultTierPaid;
+    mapping(bytes32 => bool) internal _settled;
 
     uint256 public usageReward; // default earn mint on settleAudit
 
@@ -92,6 +93,12 @@ contract BVTFeeRouter is AccessControl, IBVTFeeGate {
         return _vaultTierPaid[botId];
     }
 
+    function isSettled(
+        bytes32 botId
+    ) public view returns (bool) {
+        return _settled[botId];
+    }
+
     /// @notice Bot (or payer) spends unlocked BVT. Auditor share parks in treasury if no auditor.
     function pay(
         bytes32 botId,
@@ -125,7 +132,9 @@ contract BVTFeeRouter is AccessControl, IBVTFeeGate {
         uint256 earnAmount
     ) external onlyRole(EARNER_ROLE) {
         require(_paid[botId][FeeKind.Audit], "Fee: audit unpaid");
+        require(!_settled[botId], "Fee: already settled");
         require(staking.isActiveAuditor(auditor), "Fee: inactive auditor");
+        _settled[botId] = true;
         staking.recordAudit(auditor);
         uint256 minted = earnAmount;
         if (minted == 0) minted = usageReward;

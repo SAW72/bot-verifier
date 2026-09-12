@@ -39,6 +39,14 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
 
     mapping(address => Auditor) public auditors;
 
+    struct Checkpoint {
+        uint256 fromBlock;
+        uint256 value;
+    }
+
+    mapping(address => Checkpoint[]) private _stakeCheckpoints;
+    Checkpoint[] private _totalCheckpoints;
+
     event Staked(address indexed auditor, uint256 amount);
     event UnstakeRequested(address indexed auditor, uint256 amount, uint256 availableAt);
     event StakeWithdrawn(address indexed auditor, uint256 amount);
@@ -82,6 +90,20 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
         return auditors[auditor].stake;
     }
 
+    /// @notice Stake at `blockNumber` (inclusive). Used by the governor snapshot.
+    function stakeOfAt(
+        address auditor,
+        uint256 blockNumber
+    ) public view returns (uint256) {
+        return _lookup(_stakeCheckpoints[auditor], blockNumber);
+    }
+
+    function totalStakedAt(
+        uint256 blockNumber
+    ) public view returns (uint256) {
+        return _lookup(_totalCheckpoints, blockNumber);
+    }
+
     function isBanned(
         address auditor
     ) public view returns (bool) {
@@ -99,6 +121,7 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
         a.stake += amount;
         totalStaked += amount;
         if (a.stake >= minStake) a.active = true;
+        _writeStake(msg.sender, a.stake);
         emit Staked(msg.sender, amount);
     }
 
@@ -116,6 +139,7 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
         a.stake += amount;
         a.active = true;
         totalStaked += amount;
+        _writeStake(operator, a.stake);
         emit OperatorBootstrapped(operator, amount);
         emit Staked(operator, amount);
     }
@@ -131,6 +155,7 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
         a.unstakeAvailableAt = block.timestamp + unstakeCooldown;
         totalStaked -= amount;
         if (a.stake < minStake) a.active = false;
+        _writeStake(msg.sender, a.stake);
         emit UnstakeRequested(msg.sender, amount, a.unstakeAvailableAt);
     }
 
@@ -167,6 +192,7 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
             a.banned = true;
         }
 
+        _writeStake(auditor, a.stake);
         _distributeSlash(auditor, cut, challenger);
         emit Slashed(auditor, cut, reason, challenger);
     }
@@ -249,6 +275,43 @@ contract BVTStaking is AccessControl, IAuditorStakeView, IAuditorSlash {
             a.pendingUnstake -= remainder;
         }
         if (a.stake < minStake) a.active = false;
+    }
+
+    function _writeStake(
+        address account,
+        uint256 newStake
+    ) internal {
+        _push(_stakeCheckpoints[account], newStake);
+        _push(_totalCheckpoints, totalStaked);
+    }
+
+    function _push(
+        Checkpoint[] storage cks,
+        uint256 value
+    ) private {
+        uint256 b = block.number;
+        uint256 n = cks.length;
+        if (n > 0 && cks[n - 1].fromBlock == b) {
+            cks[n - 1].value = value;
+            return;
+        }
+        cks.push(Checkpoint({ fromBlock: b, value: value }));
+    }
+
+    function _lookup(
+        Checkpoint[] storage cks,
+        uint256 blockNumber
+    ) private view returns (uint256) {
+        uint256 n = cks.length;
+        if (n == 0 || cks[0].fromBlock > blockNumber) return 0;
+        uint256 i = n;
+        while (i > 0) {
+            unchecked {
+                i--;
+            }
+            if (cks[i].fromBlock <= blockNumber) return cks[i].value;
+        }
+        return 0;
     }
 
     /// @dev Challenger 30% (unlocked to them), rest to insurance still locked then unlocked.
