@@ -82,7 +82,57 @@ Fill in after Spencer broadcasts `script/Deploy.s.sol`.
 | Liability | _pending Spencer deploy_ | |
 | DisputePanel | _pending Spencer deploy_ | |
 
+## BVT stack (additive)
+
+Bot Verifier Token lives under `contracts/bvt/`. It does **not** change Denylist / Vault / Liability / InsuranceFund / DisputePanel. Those contracts can later call `IBVTFeeGate` / `IAuditorStakeView` (see `contracts/bvt/IBVTHooks.sol`) or transfer `owner` to `BVTTimelock`.
+
+| File | Role |
+| --- | --- |
+| `bvt/BVT.sol` | ERC-20. Name **Bot Verifier Token**, symbol **BVT**. No constructor mint. |
+| `bvt/BVTStaking.sol` | Auditor lock, operator bootstrap, slash. |
+| `bvt/BVTFeeRouter.sol` | Registration / audit / vault fees + usage earn mint. |
+| `bvt/BVTGovernor.sol` + `bvt/BVTTimelock.sol` | Stake-weighted votes; **48h** timelock. |
+| `bvt/IBVTHooks.sol` | Interfaces for a later Vault/Denylist wire-up. |
+
+Tokenomics (who mints, slash roles, fee sinks, delays): [`docs/BVT_TOKENOMICS.md`](../docs/BVT_TOKENOMICS.md).
+
+### BVT deploy (you broadcast; agents do not)
+
+Same chainid rules as the core script: Base Sepolia **84532** only; **mainnet always reverts**. Supply after deploy is **0**.
+
+**Roles:** `DeployBVT` **hardens** after wire: timelock holds `EARNER` / `BOOTSTRAP` / `SLASHER` / `DEFAULT_ADMIN`; deployer **renounces** those plus governance/admin. Sinks default to the **timelock**. Optional `BVT_GUARDIAN` may cancel during the delay. Long-lived/valued deploys: timelock + multisig only — see SECURITY in [`docs/BVT_TOKENOMICS.md`](../docs/BVT_TOKENOMICS.md#security).
+
+```bash
+forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
+forge build && forge test
+
+export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
+# PRIVATE_KEY from env only — never commit
+# optional: BVT_INSURANCE_SINK, BVT_TREASURY (default = timelock), BVT_GUARDIAN (default = deployer, cancel only)
+
+# simulate
+forge script script/DeployBVT.s.sol:DeployBVT --rpc-url "$BASE_SEPOLIA_RPC_URL"
+
+# YOU run this. Agents must not --broadcast.
+forge script script/DeployBVT.s.sol:DeployBVT --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
+```
+
+To switch the BVT script to Ethereum Sepolia, change `ALLOWED_CHAIN_ID` to `ETH_SEPOLIA_CHAIN_ID` (11155111). Do not remove the mainnet check.
+
+### Base Sepolia BVT addresses (84532)
+
+Fill in after Spencer broadcasts `script/DeployBVT.s.sol`.
+
+| Contract | Address | Tx |
+| --- | --- | --- |
+| BVT | _pending Spencer deploy_ | |
+| BVTStaking | _pending_ | |
+| BVTFeeRouter | _pending_ | |
+| BVTTimelock | _pending_ | |
+| BVTGovernor | _pending_ | |
+
 ## Notes
 - No denylist removal functions exist on purpose.
 - These are unaudited. Get a real audit before any mainnet discussion.
 - Pair with `blockchain_bot/example_policy.sol` for the action leash.
+- BVT is not a sale token. Mint only via earn (`BVTFeeRouter`) or operator bootstrap (`BVTStaking.bootstrapOperator`).

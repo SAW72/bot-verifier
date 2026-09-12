@@ -29,6 +29,7 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - `pipeline/run_audit.sh` — one-command runner.
 - `meta_audit/meta_audit_runner.py` — re-audit the auditors.
 - `contracts/Denylist.sol`, `Vault.sol`, `Liability.sol`, `InsuranceFund.sol`, `DisputePanel.sol` — real Solidity.
+- `contracts/bvt/` — BVT ERC-20, auditor staking/slash, fee router, governor + 48h timelock (no sale premine). See `docs/BVT_TOKENOMICS.md`.
 - `formal_verification/invariants.md` — properties to prove.
 - `key_management/` — ceremony + HSM notes.
 
@@ -52,16 +53,18 @@ Default model: `grok-4-1-fast` (override with `XAI_MODEL` or `--model`, e.g. `gr
 Agents do **not** broadcast. Spencer deploys with his key:
 
 ```bash
-forge install foundry-rs/forge-std
+forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
 forge build && forge test
 export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 # PRIVATE_KEY from env only — never commit
 forge script script/Deploy.s.sol:Deploy --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
+# Additive BVT stack (hardened roles; sinks default to timelock):
+# forge script script/DeployBVT.s.sol:DeployBVT --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
 ```
 
-The script reverts on Ethereum mainnet (`chainid == 1`) and on any chain other than Base Sepolia. ETH Sepolia (`11155111`) is a documented one-line switch in `script/Deploy.s.sol`. Paste addresses into `contracts/README.md` after deploy.
+Core `Deploy.s.sol` and additive `DeployBVT.s.sol` both revert on Ethereum mainnet (`chainid == 1`) and on any chain other than Base Sepolia. ETH Sepolia (`11155111`) is a documented one-line switch. Paste addresses into `contracts/README.md` after deploy.
 
 ## Status
-Architecture complete. Core runner (stub + live Grok client), denylist, vault, liability, insurance, dispute, meta-audit, key management, and a Base Sepolia Foundry deploy path are real code. Remaining: stand up the auditor staking pool, Spencer broadcasts the testnet deploy, and run the first live attested audit.
+Architecture complete. Core runner (stub + live Grok client), denylist, vault, liability, insurance, dispute, meta-audit, key management, Base Sepolia Foundry deploy, and the BVT staking/fee/governance stack are real code. Remaining: Spencer broadcasts the testnet deploys, and run the first live attested audit.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
