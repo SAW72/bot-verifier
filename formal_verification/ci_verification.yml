@@ -16,8 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+      - name: Install Solidity deps
+        run: forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts --no-commit
       - name: Run Slither
         run: |
           pip install slither-analyzer

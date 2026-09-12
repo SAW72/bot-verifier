@@ -16,10 +16,12 @@ This is what "live" means at each stage. Do not skip stages.
 - [ ] Hit `GET /v1/bots/grok-001/stamp`
 
 ## Stage 2 — testnet contracts
-- [ ] `forge init` extras / install forge-std
-- [ ] Deploy `InsuranceFund` then `Liability`, `Denylist`, `Vault` to Base Sepolia
-- [ ] Record addresses in `deployments/base-sepolia.json`
+- [ ] `forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts`
+- [ ] Deploy `InsuranceFund` then `Liability`, `Denylist`, `Vault` to Base Sepolia (core `script/Deploy.s.sol` when present)
+- [ ] Deploy the additive BVT stack with `script/DeployBVT.s.sol` (agents do not `--broadcast`)
+- [ ] Record addresses in `deployments/base-sepolia.json` and `contracts/README.md`
 - [ ] Point the stamp API at those addresses
+- [ ] Bootstrap operators via `BVTStaking.bootstrapOperator` — not a public sale
 
 ## Stage 3 — first institution
 - [ ] One crypto-native bank / neobank / payment processor as anchor tenant

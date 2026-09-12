@@ -22,4 +22,6 @@ Every auditor stakes tokens to participate. Submit a verified bad audit (fake ha
 - `fraud_detection.md` — how to detect and punish bad audits
 - `economic_security_bot_prompt.md` — Grok bot that monitors the pool
 
+On-chain implementation: `contracts/bvt/` (BVT ERC-20, staking/slash, fee router, governor + timelock). One-pager: `docs/BVT_TOKENOMICS.md`.
+
 This turns auditing from a favor into a market with skin in the game.
