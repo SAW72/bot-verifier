@@ -18,6 +18,9 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - **Maintenance**: Caretaker bot + scheduled cadence so the library stays fresh without babysitting.
 - **Research team**: Six specialist Grok bots that dig the frontier and file only actionable findings.
 - **Bot background check**: Version history, incident log, provenance tracking, and a rap sheet generator — the bot's employment record and criminal record in one place.
+- **Attestation (TEE)**: Trusted execution environment proof that the audit actually ran on the bot you think it ran on — not just a hash someone claimed.
+- **Cross-bot comparison**: Normalized 0-100 safety score and leaderboard so you can rank bots fairly across auditors and time.
+- **Human escalation**: Defined path for a human expert to review ambiguous flags, override scores, and log every decision with reasoning.
 
 ## Repo structure
 ```
@@ -83,6 +86,24 @@ background/
   provenance_schema.md
   rap_sheet_generator.md
   background_check_bot_prompt.md
+attestation/
+  README.md
+  tee_attestation.md
+  attestation_report_schema.md
+  verify_attestation.py
+comparison/
+  README.md
+  scoring_scale.md
+  comparison_matrix.md
+  leaderboard_schema.md
+  compare_bots.py
+escalation/
+  README.md
+  escalation_policy.md
+  review_queue_schema.md
+  human_review_template.md
+  override_log_schema.md
+  escalation_bot_prompt.md
 ```
 
 ## Quick start
@@ -105,8 +126,11 @@ background/
 10. Schedule the maintenance bot (see `maintenance/schedule_maintenance.md`).
 11. Spin up the research team (see `research/research_team_orchestration.md`).
 12. Run the background check bot after every audit cycle (see `background/`).
+13. Wrap the audit runner in a TEE and emit an attested report (see `attestation/`).
+14. Normalize scores and compare bots (see `comparison/`).
+15. Route ambiguous flags to a human reviewer (see `escalation/`).
 
 ## Status
-Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration + bot background check. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, enable the GitHub Actions cadence, and run the first live research cycle.
+Starter library + full architecture + sandbagging + agentic + archaeology + maintenance scheduling + research team orchestration + bot background check + TEE attestation + cross-bot comparison + human escalation. Next: wire a real bot client (Grok API) into `tool_calling_loop.py`, pick a TEE provider, and run the first live attested audit.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
