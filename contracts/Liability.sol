@@ -12,7 +12,12 @@ contract Liability {
     address public owner;
     IInsuranceFund public insurance;
 
-    enum Party { None, Owner, Auditor, Insurance }
+    enum Party {
+        None,
+        Owner,
+        Auditor,
+        Insurance
+    }
 
     struct Claim {
         bytes32 botId;
@@ -29,15 +34,36 @@ contract Liability {
 
     event ClaimFiled(bytes32 indexed claimId, bytes32 indexed botId, Party liable, uint256 amount);
     event ClaimPaid(bytes32 indexed claimId, Party liable, uint256 amount);
+    event InsuranceBound(address indexed insurance);
+    event OwnerUpdated(address indexed previous, address indexed next);
 
+    /// @param _insurance InsuranceFund address, or address(0) if binding after
+    /// InsuranceFund is constructed with this Liability as its immutable caller.
     constructor(address _insurance) {
         owner = msg.sender;
-        insurance = IInsuranceFund(_insurance);
+        if (_insurance != address(0)) {
+            insurance = IInsuranceFund(_insurance);
+        }
     }
 
     modifier onlyOwner() {
         require(msg.sender == owner, "not owner");
         _;
+    }
+
+    /// @notice One-shot bind so InsuranceFund can take this contract as an
+    /// immutable `liability` before the reverse pointer is set.
+    function bindInsurance(address _insurance) external onlyOwner {
+        require(address(insurance) == address(0), "insurance already bound");
+        require(_insurance != address(0), "zero insurance");
+        insurance = IInsuranceFund(_insurance);
+        emit InsuranceBound(_insurance);
+    }
+
+    function setOwner(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "owner zero");
+        emit OwnerUpdated(owner, newOwner);
+        owner = newOwner;
     }
 
     /// @notice File a claim. liableParty is determined off-chain from audit trail,
@@ -66,19 +92,23 @@ contract Liability {
     }
 
     /// @notice Settle a claim following the waterfall: Owner, then Auditor, then Insurance.
-    /// For this stub the owner is assumed to have pre-funded the contract.
+    /// Owner path pays from this contract's ETH balance.
+    /// Auditor path reverts until a slash/escrow hook exists (no silent settle).
+    /// Insurance path calls InsuranceFund.payout (onlyLiability).
     function settle(bytes32 claimId) external onlyOwner {
         Claim storage c = claims[claimId];
         require(!c.paid, "already paid");
         require(c.amount > 0, "no claim");
 
         if (c.liable == Party.Owner) {
-            (bool ok, ) = c.claimant.call{value: c.amount}("");
+            (bool ok,) = c.claimant.call{value: c.amount}("");
             require(ok, "owner payout failed");
         } else if (c.liable == Party.Auditor) {
-            // Auditor stake is assumed held elsewhere; here we just mark and rely on off-chain slash.
-            // In production this would call the auditor staking contract.
+            // Claim has no auditor identity; ETH amounts do not map to BVT stake.
+            // Wiring IAuditorSlash would be a larger redesign. Fail closed.
+            revert("Liability: auditor slash/escrow unset");
         } else if (c.liable == Party.Insurance) {
+            require(address(insurance) != address(0), "insurance unset");
             insurance.payout(c.claimant, c.amount, claimId);
         } else {
             revert("unknown liable party");

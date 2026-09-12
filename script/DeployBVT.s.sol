@@ -12,12 +12,13 @@ import { BVTGovernor } from "../contracts/bvt/BVTGovernor.sol";
 /// Chainid guard: Base Sepolia (84532) only. Mainnet (1) always reverts.
 /// Agents do not --broadcast. Spencer runs the broadcast command locally.
 ///
-/// After `wire`, `harden` grants hot roles to the timelock and the deployer
-/// renounces EARNER / BOOTSTRAP / SLASHER / GOVERNANCE / DEFAULT_ADMIN and
-/// hands timelock+governor admin to the timelock. Insurance/treasury default
-/// to the timelock (override with BVT_INSURANCE_SINK / BVT_TREASURY).
-/// Guardian may stay an EOA for delay-window cancel only — set BVT_GUARDIAN
-/// to a multisig for any long-lived/valued deploy.
+/// `run` calls `wireAndHarden` (single path): grant protocol roles, then hand
+/// hot roles to the timelock and fail closed if the deployer still holds
+/// EARNER / BOOTSTRAP / SLASHER / GOVERNANCE / DEFAULT_ADMIN / gov admin.
+/// Insurance/treasury default to the timelock (override with
+/// BVT_INSURANCE_SINK / BVT_TREASURY).
+/// BVT_GUARDIAN is required: non-zero and must not be the deployer (use a
+/// multisig for any long-lived/valued deploy).
 contract DeployBVT is Script {
     uint256 public constant BASE_SEPOLIA_CHAIN_ID = 84532;
     uint256 public constant ETH_SEPOLIA_CHAIN_ID = 11155111;
@@ -33,6 +34,20 @@ contract DeployBVT is Script {
         }
     }
 
+    function requireGuardian(address deployer, address guardian) public pure {
+        if (guardian == address(0)) revert("DeployBVT: BVT_GUARDIAN unset");
+        if (guardian == deployer) revert("DeployBVT: BVT_GUARDIAN must not be deployer");
+    }
+
+    function readGuardian(address deployer) public view returns (address guardian) {
+        try vm.envAddress("BVT_GUARDIAN") returns (address set) {
+            guardian = set;
+        } catch {
+            revert("DeployBVT: BVT_GUARDIAN unset");
+        }
+        requireGuardian(deployer, guardian);
+    }
+
     function run() external {
         requireAllowedChain();
 
@@ -41,7 +56,7 @@ contract DeployBVT is Script {
 
         vm.startBroadcast(deployerKey);
 
-        address guardian = _optionalAddr("BVT_GUARDIAN", deployer);
+        address guardian = readGuardian(deployer);
         BVT bvt = new BVT(deployer);
         BVTTimelock timelock = new BVTTimelock(deployer, guardian);
 
@@ -52,8 +67,7 @@ contract DeployBVT is Script {
         BVTFeeRouter fees = new BVTFeeRouter(bvt, staking, deployer, insuranceSink, treasury);
         BVTGovernor governor = new BVTGovernor(staking, timelock, deployer);
 
-        wire(bvt, staking, fees, timelock, governor, deployer);
-        harden(bvt, staking, fees, timelock, governor, deployer);
+        wireAndHarden(bvt, staking, fees, timelock, governor, deployer);
 
         vm.stopBroadcast();
 
@@ -69,6 +83,19 @@ contract DeployBVT is Script {
         console.log("totalSupply (must be 0)", bvt.totalSupply());
         console.log("Post these addresses in contracts/README.md after deploy. Never commit PRIVATE_KEY.");
         console.log("Hardened: deployer renounced mint/slash/admin. Bootstrap/earn/slash go through the timelock.");
+    }
+
+    /// @notice Single run path: wire protocol roles then harden + fail-closed assert.
+    function wireAndHarden(
+        BVT bvt,
+        BVTStaking staking,
+        BVTFeeRouter fees,
+        BVTTimelock timelock,
+        BVTGovernor governor,
+        address deployer
+    ) public {
+        wire(bvt, staking, fees, timelock, governor, deployer);
+        harden(bvt, staking, fees, timelock, governor, deployer);
     }
 
     /// @dev Grant protocol roles. Does not leave BOOTSTRAP/SLASHER on the deployer.
@@ -96,6 +123,7 @@ contract DeployBVT is Script {
     }
 
     /// @dev Caller must be current DEFAULT_ADMIN / timelock admin (the deployer during broadcast).
+    /// Reverts if the deployer still holds any hot role after renounce/handoff.
     function harden(
         BVT bvt,
         BVTStaking staking,
@@ -119,12 +147,32 @@ contract DeployBVT is Script {
         fees.renounceRole(fees.GOVERNANCE_ROLE(), deployer);
         fees.renounceRole(adminRole, deployer);
         bvt.renounceRole(adminRole, deployer);
+
+        assertDeployerHasNoHotRoles(bvt, staking, fees, timelock, governor, deployer);
     }
 
-    function _optionalAddr(
-        string memory key,
-        address fallbackAddr
-    ) internal view returns (address) {
+    function assertDeployerHasNoHotRoles(
+        BVT bvt,
+        BVTStaking staking,
+        BVTFeeRouter fees,
+        BVTTimelock timelock,
+        BVTGovernor governor,
+        address deployer
+    ) public view {
+        bytes32 adminRole = bvt.DEFAULT_ADMIN_ROLE();
+        if (bvt.hasRole(adminRole, deployer)) revert("DeployBVT: deployer still DEFAULT_ADMIN on BVT");
+        if (staking.hasRole(adminRole, deployer)) revert("DeployBVT: deployer still DEFAULT_ADMIN on staking");
+        if (fees.hasRole(adminRole, deployer)) revert("DeployBVT: deployer still DEFAULT_ADMIN on fees");
+        if (fees.hasRole(fees.EARNER_ROLE(), deployer)) revert("DeployBVT: deployer still EARNER");
+        if (staking.hasRole(staking.BOOTSTRAP_ROLE(), deployer)) revert("DeployBVT: deployer still BOOTSTRAP");
+        if (staking.hasRole(staking.SLASHER_ROLE(), deployer)) revert("DeployBVT: deployer still SLASHER");
+        if (staking.hasRole(staking.GOVERNANCE_ROLE(), deployer)) revert("DeployBVT: deployer still GOVERNANCE");
+        if (fees.hasRole(fees.GOVERNANCE_ROLE(), deployer)) revert("DeployBVT: deployer still fee GOVERNANCE");
+        if (governor.admin() == deployer) revert("DeployBVT: deployer still gov admin");
+        if (timelock.admin() == deployer) revert("DeployBVT: deployer still timelock admin");
+    }
+
+    function _optionalAddr(string memory key, address fallbackAddr) internal view returns (address) {
         try vm.envAddress(key) returns (address set) {
             if (set != address(0)) return set;
         } catch { }

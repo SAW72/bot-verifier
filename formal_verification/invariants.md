@@ -22,8 +22,15 @@ Use with a tool like Certora, Slither, or manual review.
 2. Waterfall order: Owner, then Auditor, then Insurance.
 3. Insurance payout requires sufficient `InsuranceFund.balance`.
 4. No double-claim on the same `incidentHash`.
+5. `Party.Auditor` settle reverts until a slash/escrow hook exists (`Liability: auditor slash/escrow unset`) and does not set `paid`.
+
+## InsuranceFund.sol
+1. `payout` succeeds only when `msg.sender == liability` (`onlyLiability`).
+2. `liability` is immutable and non-zero.
+3. Owner / random EOAs / other contracts cannot `payout`.
 
 ## DisputePanel.sol
 1. A dispute resolves only after >= 3 votes.
 2. `upheld` is true iff `votesFor >= votesAgainst`.
 3. No vote after resolution.
+4. `vote` reverts unless the caller is an allowlisted arbitrator (`isArbitrator`).

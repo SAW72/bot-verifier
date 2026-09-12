@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Script, console} from "forge-std/Script.sol";
-import {Denylist} from "../contracts/Denylist.sol";
-import {Vault} from "../contracts/Vault.sol";
-import {InsuranceFund} from "../contracts/InsuranceFund.sol";
-import {Liability} from "../contracts/Liability.sol";
-import {DisputePanel} from "../contracts/DisputePanel.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { Denylist } from "../contracts/Denylist.sol";
+import { Vault } from "../contracts/Vault.sol";
+import { InsuranceFund } from "../contracts/InsuranceFund.sol";
+import { Liability } from "../contracts/Liability.sol";
+import { DisputePanel } from "../contracts/DisputePanel.sol";
 
-/// @notice Deploy Denylist → Vault → InsuranceFund → Liability → DisputePanel.
+/// @notice Deploy Denylist → Vault → Liability → InsuranceFund → DisputePanel.
+/// InsuranceFund takes an immutable Liability; Liability then bindInsurance.
+/// After deploy: Denylist/Vault `transferOwnership(CORE_TIMELOCK)` (Ownable2Step;
+/// timelock must `acceptOwnership`). InsuranceFund/Liability/DisputePanel
+/// `setOwner(CORE_TIMELOCK)`. InsuranceFund.payout stays onlyLiability.
 /// Chainid guard: Base Sepolia (84532) only. Mainnet is always refused.
 /// ETH Sepolia (11155111) is documented as a one-line switch — do not enable it
 /// here unless you intentionally change ALLOWED_CHAIN_ID.
@@ -27,17 +31,34 @@ contract Deploy is Script {
         }
     }
 
+    function requireTimelock(address deployer, address timelock) public pure {
+        if (timelock == address(0)) revert("Deploy: CORE_TIMELOCK unset");
+        if (timelock == deployer) revert("Deploy: CORE_TIMELOCK must not be deployer");
+    }
+
     function run() external {
         requireAllowedChain();
 
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerKey);
+        address timelock = vm.envAddress("CORE_TIMELOCK");
+        requireTimelock(deployer, timelock);
+
         vm.startBroadcast(deployerKey);
 
         Denylist denylist = new Denylist();
         Vault vault = new Vault(address(denylist));
-        InsuranceFund insurance = new InsuranceFund();
-        Liability liability = new Liability(address(insurance));
+        // Liability first so InsuranceFund can freeze it as immutable onlyLiability.
+        Liability liability = new Liability(address(0));
+        InsuranceFund insurance = new InsuranceFund(address(liability));
+        liability.bindInsurance(address(insurance));
         DisputePanel panel = new DisputePanel();
+
+        denylist.transferOwnership(timelock);
+        vault.transferOwnership(timelock);
+        insurance.setOwner(timelock);
+        liability.setOwner(timelock);
+        panel.setOwner(timelock);
 
         vm.stopBroadcast();
 
@@ -47,6 +68,7 @@ contract Deploy is Script {
         console.log("InsuranceFund", address(insurance));
         console.log("Liability", address(liability));
         console.log("DisputePanel", address(panel));
+        console.log("CORE_TIMELOCK", timelock);
         console.log("Post these addresses in contracts/README.md after deploy. Never commit PRIVATE_KEY.");
     }
 }

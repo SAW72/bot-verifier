@@ -3,13 +3,15 @@
 // Not audited. For illustration and local testing.
 pragma solidity ^0.8.20;
 
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+
 interface IDenylist {
     enum MatchLevel { None, PromptReview, SignatureBlock, ExactBlock }
     function check(bytes32, bytes32, bytes32) external returns (MatchLevel);
 }
 
-contract Vault {
-    address public owner;
+contract Vault is Ownable2Step {
     IDenylist public denylist;
 
     enum Tier { None, Chat, DataTools, Financial, Critical }
@@ -30,18 +32,12 @@ contract Vault {
     event Burned(bytes32 indexed botId, uint256 ts);
     event AccessGranted(bytes32 indexed botId, Tier tier, uint256 ts);
 
-    constructor(address _denylist) {
-        owner = msg.sender;
+    constructor(address _denylist) Ownable(msg.sender) {
         denylist = IDenylist(_denylist);
         tierMaxPermissions[Tier.Chat] = 1;
         tierMaxPermissions[Tier.DataTools] = 2;
         tierMaxPermissions[Tier.Financial] = 3;
         tierMaxPermissions[Tier.Critical] = 4;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "not owner");
-        _;
     }
 
     /// @notice Register a bot after it passes the denylist check.

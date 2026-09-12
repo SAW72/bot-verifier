@@ -60,12 +60,14 @@ interface IAuditorSlash {
     ) external;
 }
 
-/// @notice Future path: transfer Denylist/Vault `owner` to the BVT timelock so
-/// denylist upgrades and tier changes are proposal + delay, not a hot key.
+/// @notice Denylist / Vault use OZ Ownable2Step. `Deploy.s.sol` calls
+/// `transferOwnership(CORE_TIMELOCK)`; the timelock must `acceptOwnership`.
 interface IOwnableHook {
     function owner() external view returns (address);
 
-    function setOwner(
-        address newOwner
-    ) external;
+    function pendingOwner() external view returns (address);
+
+    function transferOwnership(address newOwner) external;
+
+    function acceptOwnership() external;
 }

@@ -31,11 +31,11 @@ Auditors lock BVT (`stake`) or are bootstrapped. **Active** iff `stake >= minSta
 
 ## Roles after `DeployBVT` (hardened)
 
-`wire` then `harden`: hot roles move to the **timelock**; the deployer EOA **renounces** `EARNER`, `BOOTSTRAP` (never granted to deployer), `SLASHER` (never granted to deployer), `GOVERNANCE`, and `DEFAULT_ADMIN`. Timelock admin and Governor admin become the timelock (`transferAdmin(address(this))`), so the deployer cannot `setGovernor`.
+`run` calls `wireAndHarden` (atomic): hot roles move to the **timelock**; the deployer EOA **renounces** `EARNER`, `BOOTSTRAP` (never granted to deployer), `SLASHER` (never granted to deployer), `GOVERNANCE`, and `DEFAULT_ADMIN`. Harden **reverts** if any of those remain on the deployer. Timelock admin and Governor admin become the timelock (`transferAdmin(address(this))`), so the deployer cannot `setGovernor`.
 
 Insurance / treasury sinks default to the **timelock** (not the deployer). Override with `BVT_INSURANCE_SINK` / `BVT_TREASURY`.
 
-The optional `BVT_GUARDIAN` (default: deployer) can still **cancel** a queued batch during the delay. That is the only remaining EOA lever.
+`BVT_GUARDIAN` is **required** (non-zero and ≠ deployer). It can **cancel** a queued batch during the delay. Do not default it to the deployer.
 
 ## SECURITY
 
@@ -59,7 +59,7 @@ Default fees: register **100**, audit **250**, vault Chat/Data/Financial/Critica
 
 Voting power = **staked BVT** (lockup). Proposal threshold = `minStake`. Voting period **5 days**. Quorum **10%** of `totalStaked` at propose. Pass = more for than against.
 
-Passed proposals **queue** in `BVTTimelock` (default delay **48 hours**, min 1h / max 30d). Execute only after `eta`. Guardian/admin/governor can **cancel** during the delay. Parameter changes (`minStake`, fees, splits, sinks, slash bps, governor params, delay) go through this path. The same timelock can later own `Denylist` / `Vault` for denylist upgrades and tier changes without rewriting those contracts now.
+Passed proposals **queue** in `BVTTimelock` (default delay **48 hours**, min 1h / max 30d). Execute only after `eta`. Guardian/admin/governor can **cancel** during the delay. Parameter changes (`minStake`, fees, splits, sinks, slash bps, governor params, delay) go through this path. `Deploy.s.sol` starts Ownable2Step `transferOwnership` of `Denylist` / `Vault` to `CORE_TIMELOCK`; the timelock must `acceptOwnership`.
 
 ## What this is not
 
