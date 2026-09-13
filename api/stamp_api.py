@@ -121,6 +121,7 @@ def _stamp(record: Dict[str, Any], *, require_attestation: bool = False) -> Dict
         "insurance_level": record.get("insurance_level", "standard"),
         "scoring_mode": scoring_mode,
         "attestation_grade": grade,
+        "active": bool(record.get("active", True)),
         "issued_at": int(time.time()),
         "expires_at": int(time.time()) + 3600,
     }
@@ -159,6 +160,7 @@ def register(body: RegisterBody, _: None = Depends(require_operator)):
     record = body.model_dump()
     record["scoring_mode"] = scoring_mode
     record["fingerprint_hash"] = expected
+    record["active"] = True
     REGISTRY[body.bot_id] = record
     HISTORY.setdefault(body.bot_id, [])
     return {"registered": True, "stamp": _stamp(record, require_attestation=body.require_attestation)}

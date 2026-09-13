@@ -88,8 +88,15 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     ) external payable nonReentrant returns (bytes32) {
         if (usedEscrowIds[escrowId]) revert Replay();
         if (payee == address(0) || msg.sender == payee) revert InvalidParties();
+        if (payerBotId == bytes32(0) || payeeBotId == bytes32(0) || payerBotId == payeeBotId) {
+            revert InvalidParties();
+        }
         if (msg.value == 0) revert AttestationFailed("zero amount");
         if (durationSeconds == 0 || durationSeconds > 30 days) revert AttestationFailed("bad duration");
+
+        // Fail closed at lock time so invalid counterparties cannot trap funds.
+        _verifyBot(payerBotId, "payer");
+        _verifyBot(payeeBotId, "payee");
 
         usedEscrowIds[escrowId] = true;
         uint256 expiresAt = block.timestamp + durationSeconds;
@@ -153,6 +160,15 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         if (!active) revert AttestationFailed(string.concat(role, " bot inactive"));
         if (uint8(tier) < uint8(IVault.Tier.Financial)) {
             revert AttestationFailed(string.concat(role, " bot below Financial tier"));
+        }
+        // Vault access path (active + Financial+ perm cap). Catch string reverts
+        // so callers always see AttestationFailed.
+        try vault.grantAccess(botId, uint8(IVault.Tier.Financial)) returns (bool allowed) {
+            if (!allowed) {
+                revert AttestationFailed(string.concat(role, " bot access denied"));
+            }
+        } catch {
+            revert AttestationFailed(string.concat(role, " bot access denied"));
         }
         IDenylist.MatchLevel level = denylist.check(weightHash, behaviorSig, promptHash);
         if (level != IDenylist.MatchLevel.None) {

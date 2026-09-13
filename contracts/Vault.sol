@@ -8,7 +8,7 @@ import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 interface IDenylist {
     enum MatchLevel { None, PromptReview, SignatureBlock, ExactBlock }
-    function check(bytes32, bytes32, bytes32) external returns (MatchLevel);
+    function check(bytes32, bytes32, bytes32) external view returns (MatchLevel);
 }
 
 contract Vault is Ownable2Step {
