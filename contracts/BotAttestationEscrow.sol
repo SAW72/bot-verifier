@@ -16,6 +16,7 @@ interface IDenylist {
 interface IVault {
     enum Tier { None, Chat, DataTools, Financial, Critical }
     function grantAccess(bytes32 botId, uint8 requestedPerms) external view returns (bool);
+    function operator(bytes32 botId) external view returns (address);
     function bots(bytes32) external view returns (
         bytes32 weightHash,
         bytes32 behaviorSig,
@@ -26,11 +27,19 @@ interface IVault {
     );
 }
 
+interface IDisputePanel {
+    function outcome(bytes32 disputeId)
+        external
+        view
+        returns (bool exists, bool resolved, bool upheld, bytes32 subjectHash);
+}
+
 /// @title BotAttestationEscrow
 /// @notice Escrows value for a bot-to-bot transaction until both sides verify each other.
 contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     IDenylist public denylist;
     IVault public vault;
+    IDisputePanel public disputePanel;
 
     enum EscrowState { Open, Released, Refunded, Disputed }
 
@@ -67,16 +76,20 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     error AttestationFailed(string reason);
     error InvalidParties();
     error Replay();
+    error InvalidDispute();
+    error DisputePending();
 
-    constructor(address _denylist, address _vault) Ownable(msg.sender) {
+    constructor(address _denylist, address _vault, address _panel) Ownable(msg.sender) {
+        if (_panel == address(0)) revert InvalidDispute();
         denylist = IDenylist(_denylist);
         vault = IVault(_vault);
+        disputePanel = IDisputePanel(_panel);
     }
 
     /// @notice Create an escrow for a bot-to-bot payment.
     /// @param escrowId Unique id (caller-generated, e.g. hash of intent + nonce).
-    /// @param payee Address receiving funds on release.
-    /// @param payerBotId On-chain bot id of the paying bot.
+    /// @param payee Address receiving funds on release. Must be the payee bot's Vault operator.
+    /// @param payerBotId On-chain bot id of the paying bot. Caller must be its Vault operator.
     /// @param payeeBotId On-chain bot id of the receiving bot.
     /// @param durationSeconds How long the escrow stays open before expiry.
     function createEscrow(
@@ -93,6 +106,10 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         }
         if (msg.value == 0) revert AttestationFailed("zero amount");
         if (durationSeconds == 0 || durationSeconds > 30 days) revert AttestationFailed("bad duration");
+
+        // EOA ↔ botId bind: only the Vault operator may lock or receive under a botId.
+        if (vault.operator(payerBotId) != msg.sender) revert InvalidParties();
+        if (vault.operator(payeeBotId) != payee) revert InvalidParties();
 
         // Fail closed at lock time so invalid counterparties cannot trap funds.
         _verifyBot(payerBotId, "payer");
@@ -118,11 +135,17 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
 
     /// @notice Release funds to the payee after mutual attestation checks pass.
     /// @dev Both bots must be active in the Vault, not denylisted, and hold Financial+ tier.
+    ///      A disputed escrow can release only if the panel upheld the original deal.
     function release(bytes32 escrowId) external nonReentrant {
         Escrow storage e = escrows[escrowId];
-        if (e.state != EscrowState.Open) revert EscrowNotOpen();
+        if (e.state == EscrowState.Disputed) {
+            _requirePanelUpheld(e, escrowId);
+        } else if (e.state != EscrowState.Open) {
+            revert EscrowNotOpen();
+        }
         if (block.timestamp > e.expiresAt) revert EscrowExpired();
 
+        _requireBoundOperators(e);
         _verifyBot(e.payerBotId, "payer");
         _verifyBot(e.payeeBotId, "payee");
 
@@ -132,11 +155,20 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         emit EscrowReleased(escrowId, e.amount);
     }
 
-    /// @notice Refund the payer if the escrow expires or a dispute is raised.
+    /// @notice Refund the payer if the escrow expires or the panel rules an unwind.
+    /// @dev `Disputed` alone is not enough — that would let either party unwind unilaterally.
     function refund(bytes32 escrowId) external nonReentrant {
         Escrow storage e = escrows[escrowId];
-        if (e.state != EscrowState.Open && e.state != EscrowState.Disputed) revert EscrowNotOpen();
-        require(block.timestamp > e.expiresAt || e.state == EscrowState.Disputed, "not expired or disputed");
+        if (e.state == EscrowState.Open) {
+            require(block.timestamp > e.expiresAt, "not expired");
+        } else if (e.state == EscrowState.Disputed) {
+            if (block.timestamp <= e.expiresAt) {
+                _requirePanelUnwind(e, escrowId);
+            }
+            // else: expiry is the timelock backstop even if the panel never ruled
+        } else {
+            revert EscrowNotOpen();
+        }
 
         e.state = EscrowState.Refunded;
         (bool ok, ) = e.payer.call{value: e.amount}("");
@@ -144,14 +176,36 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         emit EscrowRefunded(escrowId, e.amount);
     }
 
-    /// @notice Flag an escrow for dispute (e.g. one side's attestation is stale).
+    /// @notice Flag an escrow for dispute. Does not authorize a refund.
+    /// @dev `disputeId` must already exist on the DisputePanel with subjectHash == escrowId.
     function dispute(bytes32 escrowId, bytes32 disputeId) external {
         Escrow storage e = escrows[escrowId];
         if (e.state != EscrowState.Open) revert EscrowNotOpen();
         require(msg.sender == e.payer || msg.sender == e.payee, "not a party");
+        if (disputeId == bytes32(0)) revert InvalidDispute();
+        (bool exists, , , bytes32 subject) = disputePanel.outcome(disputeId);
+        if (!exists || subject != escrowId) revert InvalidDispute();
         e.state = EscrowState.Disputed;
         e.disputeId = disputeId;
         emit EscrowDisputed(escrowId, disputeId);
+    }
+
+    function _requireBoundOperators(Escrow storage e) internal view {
+        if (vault.operator(e.payerBotId) != e.payer) revert InvalidParties();
+        if (vault.operator(e.payeeBotId) != e.payee) revert InvalidParties();
+    }
+
+    function _requirePanelUnwind(Escrow storage e, bytes32 escrowId) internal view {
+        (bool exists, bool resolved, bool upheld, bytes32 subject) = disputePanel.outcome(e.disputeId);
+        if (!exists || subject != escrowId) revert InvalidDispute();
+        if (!resolved) revert DisputePending();
+        if (upheld) revert DisputePending();
+    }
+
+    function _requirePanelUpheld(Escrow storage e, bytes32 escrowId) internal view {
+        (bool exists, bool resolved, bool upheld, bytes32 subject) = disputePanel.outcome(e.disputeId);
+        if (!exists || subject != escrowId) revert InvalidDispute();
+        if (!resolved || !upheld) revert DisputePending();
     }
 
     function _verifyBot(bytes32 botId, string memory role) internal view {

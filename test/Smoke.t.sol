@@ -65,7 +65,10 @@ contract SmokeTest is Test {
         vault.register(botId, keccak256("w"), keccak256("s"), keccak256("p"), Vault.Tier.Chat);
         (,,,, bool active,) = vault.bots(botId);
         assertTrue(active);
+        assertEq(vault.operator(botId), address(0));
         assertTrue(vault.grantAccess(botId, 1));
+        vault.setOperator(botId, address(this));
+        assertEq(vault.operator(botId), address(this));
         vault.burn(botId);
         (,,,, active,) = vault.bots(botId);
         assertFalse(active);

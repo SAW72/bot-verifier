@@ -59,6 +59,19 @@ contract DisputePanel {
         return isArbitrator[voter];
     }
 
+    /// @notice Compact outcome for escrow / other callers that must not decode the full struct.
+    function outcome(bytes32 disputeId)
+        external
+        view
+        returns (bool exists, bool resolved, bool upheld, bytes32 subjectHash)
+    {
+        Dispute storage d = disputes[disputeId];
+        exists = d.createdAt != 0;
+        resolved = d.resolved;
+        upheld = d.upheld;
+        subjectHash = d.subjectHash;
+    }
+
     function openDispute(bytes32 disputeId, bytes32 subjectHash, string calldata reason) external {
         require(disputes[disputeId].createdAt == 0, "exists");
         disputes[disputeId] = Dispute({

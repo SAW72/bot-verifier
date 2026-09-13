@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {BotAttestationEscrow} from "../contracts/BotAttestationEscrow.sol";
 import {Denylist} from "../contracts/Denylist.sol";
 import {Vault} from "../contracts/Vault.sol";
+import {DisputePanel} from "../contracts/DisputePanel.sol";
 
 contract EtherSink {
     receive() external payable {}
@@ -37,10 +38,14 @@ contract ReenteringPayee {
 contract BotAttestationEscrowTest is Test {
     Denylist denylist;
     Vault vault;
+    DisputePanel panel;
     BotAttestationEscrow escrow;
 
     address payer;
     address payee;
+    address arb1;
+    address arb2;
+    address arb3;
 
     bytes32 payerBot = keccak256("payer-bot");
     bytes32 payeeBot = keccak256("payee-bot");
@@ -48,13 +53,20 @@ contract BotAttestationEscrowTest is Test {
     function setUp() public {
         denylist = new Denylist();
         vault = new Vault(address(denylist));
-        escrow = new BotAttestationEscrow(address(denylist), address(vault));
+        panel = new DisputePanel();
+        escrow = new BotAttestationEscrow(address(denylist), address(vault), address(panel));
 
         payer = makeAddr("payer");
         payee = makeAddr("payee");
+        arb1 = makeAddr("arb1");
+        arb2 = makeAddr("arb2");
+        arb3 = makeAddr("arb3");
+        panel.setArbitrator(arb1, true);
+        panel.setArbitrator(arb2, true);
+        panel.setArbitrator(arb3, true);
 
-        vault.register(payerBot, keccak256("w1"), keccak256("b1"), keccak256("p1"), Vault.Tier.Financial);
-        vault.register(payeeBot, keccak256("w2"), keccak256("b2"), keccak256("p2"), Vault.Tier.Financial);
+        vault.register(payerBot, keccak256("w1"), keccak256("b1"), keccak256("p1"), Vault.Tier.Financial, payer);
+        vault.register(payeeBot, keccak256("w2"), keccak256("b2"), keccak256("p2"), Vault.Tier.Financial, payee);
 
         vm.deal(payer, 10 ether);
     }
@@ -62,6 +74,20 @@ contract BotAttestationEscrowTest is Test {
     function _create(bytes32 escrowId, uint256 amount, uint256 duration) internal {
         vm.prank(payer);
         escrow.createEscrow{value: amount}(escrowId, payee, payerBot, payeeBot, duration);
+    }
+
+    function _openPanel(bytes32 escrowId, bytes32 disputeId) internal {
+        panel.openDispute(disputeId, escrowId, "attestation stale");
+    }
+
+    function _panelRule(bytes32 disputeId, bool uphold) internal {
+        // upheld == votesFor >= votesAgainst. support=true counts as votesFor.
+        vm.prank(arb1);
+        panel.vote(disputeId, uphold);
+        vm.prank(arb2);
+        panel.vote(disputeId, uphold);
+        vm.prank(arb3);
+        panel.vote(disputeId, false);
     }
 
     function test_createAndRelease() public {
@@ -148,7 +174,7 @@ contract BotAttestationEscrowTest is Test {
 
     function test_createRejectsChatTier() public {
         bytes32 chatBot = keccak256("chat-bot");
-        vault.register(chatBot, keccak256("w3"), keccak256("b3"), keccak256("p3"), Vault.Tier.Chat);
+        vault.register(chatBot, keccak256("w3"), keccak256("b3"), keccak256("p3"), Vault.Tier.Chat, payee);
 
         bytes32 escrowId = keccak256("deal-tier");
         vm.prank(payer);
@@ -166,14 +192,32 @@ contract BotAttestationEscrowTest is Test {
         escrow.release(escrowId);
     }
 
-    function test_disputeThenRefund() public {
-        bytes32 escrowId = keccak256("deal-disp");
+    function test_disputeDoesNotAllowInstantRefund() public {
+        bytes32 escrowId = keccak256("deal-disp-pending");
         uint256 amount = 1 ether;
         _create(escrowId, amount, 3600);
 
-        bytes32 disputeId = keccak256("d1");
+        bytes32 disputeId = keccak256("d-pending");
+        _openPanel(escrowId, disputeId);
         vm.prank(payer);
         escrow.dispute(escrowId, disputeId);
+
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.DisputePending.selector);
+        escrow.refund(escrowId);
+        assertEq(address(escrow).balance, amount);
+    }
+
+    function test_refundAfterPanelUnwind() public {
+        bytes32 escrowId = keccak256("deal-disp-unwind");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 3600);
+
+        bytes32 disputeId = keccak256("d-unwind");
+        _openPanel(escrowId, disputeId);
+        vm.prank(payer);
+        escrow.dispute(escrowId, disputeId);
+        _panelRule(disputeId, false); // do not uphold — unwind
 
         uint256 before = payer.balance;
         vm.prank(payer);
@@ -181,12 +225,103 @@ contract BotAttestationEscrowTest is Test {
         assertEq(payer.balance, before + amount);
     }
 
+    function test_refundAfterDisputeOnExpiryTimelock() public {
+        bytes32 escrowId = keccak256("deal-disp-tl");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 100);
+
+        bytes32 disputeId = keccak256("d-tl");
+        _openPanel(escrowId, disputeId);
+        vm.prank(payer);
+        escrow.dispute(escrowId, disputeId);
+
+        vm.warp(block.timestamp + 101);
+        uint256 before = payer.balance;
+        vm.prank(payer);
+        escrow.refund(escrowId);
+        assertEq(payer.balance, before + amount);
+    }
+
+    function test_panelUpholdBlocksRefundAllowsRelease() public {
+        bytes32 escrowId = keccak256("deal-disp-uphold");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 3600);
+
+        bytes32 disputeId = keccak256("d-uphold");
+        _openPanel(escrowId, disputeId);
+        vm.prank(payee);
+        escrow.dispute(escrowId, disputeId);
+        _panelRule(disputeId, true); // original deal stands
+
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.DisputePending.selector);
+        escrow.refund(escrowId);
+
+        uint256 before = payee.balance;
+        vm.prank(payer);
+        escrow.release(escrowId);
+        assertEq(payee.balance, before + amount);
+    }
+
+    function test_disputeRequiresPanelCaseForThisEscrow() public {
+        bytes32 escrowId = keccak256("deal-bad-id");
+        _create(escrowId, 1 ether, 3600);
+
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.InvalidDispute.selector);
+        escrow.dispute(escrowId, keccak256("never-opened"));
+
+        bytes32 other = keccak256("other-escrow");
+        bytes32 disputeId = keccak256("d-wrong-subject");
+        panel.openDispute(disputeId, other, "wrong subject");
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.InvalidDispute.selector);
+        escrow.dispute(escrowId, disputeId);
+    }
+
+    function test_unboundEoaCannotCreateUnderForeignBotId() public {
+        address eve = makeAddr("eve");
+        vm.deal(eve, 1 ether);
+        vm.prank(eve);
+        vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
+        escrow.createEscrow{value: 1 ether}(keccak256("steal"), payee, payerBot, payeeBot, 3600);
+    }
+
+    function test_unboundPayeeRejected() public {
+        address evePayee = makeAddr("evePayee");
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
+        escrow.createEscrow{value: 1 ether}(keccak256("bad-payee"), evePayee, payerBot, payeeBot, 3600);
+    }
+
+    function test_createRejectsUnboundBot() public {
+        bytes32 unbound = keccak256("no-operator");
+        vault.register(unbound, keccak256("w4"), keccak256("b4"), keccak256("p4"), Vault.Tier.Financial);
+        assertEq(vault.operator(unbound), address(0));
+
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
+        escrow.createEscrow{value: 1 ether}(keccak256("unbound"), payee, payerBot, unbound, 3600);
+    }
+
+    function test_releaseRevertsIfOperatorRotated() public {
+        bytes32 escrowId = keccak256("deal-rotate");
+        _create(escrowId, 1 ether, 3600);
+        vault.setOperator(payeeBot, makeAddr("new-payee"));
+
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
+        escrow.release(escrowId);
+    }
+
     function test_strangerCannotDispute() public {
         bytes32 escrowId = keccak256("deal-stranger");
         _create(escrowId, 1 ether, 3600);
+        bytes32 disputeId = keccak256("x");
+        _openPanel(escrowId, disputeId);
         vm.prank(makeAddr("stranger"));
         vm.expectRevert(bytes("not a party"));
-        escrow.dispute(escrowId, keccak256("x"));
+        escrow.dispute(escrowId, disputeId);
     }
 
     function test_zeroValueRejected() public {
@@ -229,6 +364,7 @@ contract BotAttestationEscrowTest is Test {
 
     function test_releaseToReceivingContract() public {
         EtherSink sink = new EtherSink();
+        vault.setOperator(payeeBot, address(sink));
         bytes32 escrowId = keccak256("deal-sink");
         uint256 amount = 1 ether;
 
@@ -242,6 +378,7 @@ contract BotAttestationEscrowTest is Test {
 
     function test_reenteringPayeeCannotDoublePay() public {
         ReenteringPayee evil = new ReenteringPayee(escrow);
+        vault.setOperator(payeeBot, address(evil));
         bytes32 escrowId = keccak256("deal-reenter");
         uint256 amount = 1 ether;
 
@@ -269,8 +406,23 @@ contract BotAttestationEscrowTest is Test {
         bytes32 escrowId = keccak256("deal-early");
         _create(escrowId, 1 ether, 3600);
         vm.prank(payer);
-        vm.expectRevert(bytes("not expired or disputed"));
+        vm.expectRevert(bytes("not expired"));
         escrow.refund(escrowId);
+    }
+
+    function test_constructorRejectsZeroPanel() public {
+        vm.expectRevert(BotAttestationEscrow.InvalidDispute.selector);
+        new BotAttestationEscrow(address(denylist), address(vault), address(0));
+    }
+
+    function test_vaultOperatorBindAndRotate() public {
+        bytes32 botId = keccak256("op-bot");
+        vault.register(botId, keccak256("w5"), keccak256("b5"), keccak256("p5"), Vault.Tier.Financial);
+        assertEq(vault.operator(botId), address(0));
+        vault.setOperator(botId, payer);
+        assertEq(vault.operator(botId), payer);
+        vault.setOperator(botId, payee);
+        assertEq(vault.operator(botId), payee);
     }
 
     function _escrowTuple(bytes32 escrowId)
