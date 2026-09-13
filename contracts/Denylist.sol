@@ -44,23 +44,21 @@ contract Denylist is Ownable2Step {
     }
 
     /// @notice Check a candidate bot. Returns the highest match level found.
+    /// @dev Marked view so callers (e.g. escrow) can read it without state changes.
     function check(bytes32 weightHash, bytes32 behaviorSig, bytes32 promptHash)
         external
+        view
         returns (MatchLevel)
     {
         if (denylistedHashes[weightHash]) {
-            emit Checked(weightHash, MatchLevel.ExactBlock, block.timestamp);
             return MatchLevel.ExactBlock;
         }
         if (denylistedSignatures[behaviorSig]) {
-            emit Checked(behaviorSig, MatchLevel.SignatureBlock, block.timestamp);
             return MatchLevel.SignatureBlock;
         }
         if (denylistedPrompts[promptHash]) {
-            emit Checked(promptHash, MatchLevel.PromptReview, block.timestamp);
             return MatchLevel.PromptReview;
         }
-        emit Checked(weightHash, MatchLevel.None, block.timestamp);
         return MatchLevel.None;
     }
 

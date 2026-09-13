@@ -20,7 +20,8 @@ contract DisputePanelTest is Test {
 
     function test_appointedPanelCanResolve() public {
         bytes32 disputeId = keccak256("d1");
-        panel.openDispute(disputeId, keccak256("subject"), "false flag");
+        bytes32 subject = keccak256("subject");
+        panel.openDispute(disputeId, subject, "false flag");
         vm.prank(arb1);
         panel.vote(disputeId, true);
         vm.prank(arb2);
@@ -30,6 +31,19 @@ contract DisputePanelTest is Test {
         (,,,,, bool resolved, bool upheld,) = panel.disputes(disputeId);
         assertTrue(resolved);
         assertTrue(upheld);
+        (bool exists, bool outResolved, bool outUpheld, bytes32 outSubject) = panel.outcome(disputeId);
+        assertTrue(exists);
+        assertTrue(outResolved);
+        assertTrue(outUpheld);
+        assertEq(outSubject, subject);
+    }
+
+    function test_outcomeMissingDispute() public view {
+        (bool exists, bool resolved, bool upheld, bytes32 subject) = panel.outcome(keccak256("none"));
+        assertFalse(exists);
+        assertFalse(resolved);
+        assertFalse(upheld);
+        assertEq(subject, bytes32(0));
     }
 
     function test_randomAddressCannotVote() public {
