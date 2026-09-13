@@ -7,6 +7,7 @@ import {BotAttestationEscrow} from "../contracts/BotAttestationEscrow.sol";
 import {Denylist} from "../contracts/Denylist.sol";
 import {Vault} from "../contracts/Vault.sol";
 import {DisputePanel} from "../contracts/DisputePanel.sol";
+import {DeployBotAttestationEscrow} from "../script/DeployBotAttestationEscrow.s.sol";
 
 contract EtherSink {
     receive() external payable {}
@@ -411,8 +412,31 @@ contract BotAttestationEscrowTest is Test {
     }
 
     function test_constructorRejectsZeroPanel() public {
-        vm.expectRevert(BotAttestationEscrow.InvalidDispute.selector);
+        vm.expectRevert(BotAttestationEscrow.ZeroAddress.selector);
         new BotAttestationEscrow(address(denylist), address(vault), address(0));
+    }
+
+    function test_constructorRejectsZeroVault() public {
+        vm.expectRevert(BotAttestationEscrow.ZeroAddress.selector);
+        new BotAttestationEscrow(address(denylist), address(0), address(panel));
+    }
+
+    function test_ownerCanRepointDeps() public {
+        Denylist d2 = new Denylist();
+        Vault v2 = new Vault(address(d2));
+        DisputePanel p2 = new DisputePanel();
+        escrow.setDenylist(address(d2));
+        escrow.setVault(address(v2));
+        escrow.setDisputePanel(address(p2));
+        assertEq(address(escrow.denylist()), address(d2));
+        assertEq(address(escrow.vault()), address(v2));
+        assertEq(address(escrow.disputePanel()), address(p2));
+    }
+
+    function test_strangerCannotRepointDeps() public {
+        vm.prank(makeAddr("eve"));
+        vm.expectRevert();
+        escrow.setDenylist(address(denylist));
     }
 
     function test_vaultOperatorBindAndRotate() public {
@@ -441,5 +465,92 @@ contract BotAttestationEscrowTest is Test {
         )
     {
         return escrow.escrows(escrowId);
+    }
+}
+
+contract DeployEscrowGuardTest is Test {
+    DeployBotAttestationEscrow internal deploy;
+
+    function setUp() public {
+        deploy = new DeployBotAttestationEscrow();
+    }
+
+    function test_allowsBaseSepolia() public {
+        vm.chainId(84532);
+        deploy.requireAllowedChain();
+    }
+
+    function test_refusesMainnet() public {
+        vm.chainId(1);
+        vm.expectRevert(bytes("DeployEscrow: mainnet forbidden"));
+        deploy.requireAllowedChain();
+    }
+
+    function test_refusesEthSepoliaByDefault() public {
+        vm.chainId(11155111);
+        vm.expectRevert(bytes("DeployEscrow: Base Sepolia (84532) only; see README to switch to ETH Sepolia (11155111)"));
+        deploy.requireAllowedChain();
+    }
+
+    function test_refusesAnvil() public {
+        vm.chainId(31337);
+        vm.expectRevert(bytes("DeployEscrow: Base Sepolia (84532) only; see README to switch to ETH Sepolia (11155111)"));
+        deploy.requireAllowedChain();
+    }
+
+    function test_constantsDocumentEthSepolia() public view {
+        assertEq(deploy.ETH_SEPOLIA_CHAIN_ID(), 11155111);
+        assertEq(deploy.ALLOWED_CHAIN_ID(), 84532);
+        assertEq(deploy.ETH_MAINNET_CHAIN_ID(), 1);
+    }
+
+    function test_timelockMustBeSetAndNotDeployer() public {
+        address deployer = address(this);
+        vm.expectRevert(bytes("DeployEscrow: CORE_TIMELOCK unset"));
+        deploy.requireTimelock(deployer, address(0));
+        vm.expectRevert(bytes("DeployEscrow: CORE_TIMELOCK must not be deployer"));
+        deploy.requireTimelock(deployer, deployer);
+        deploy.requireTimelock(deployer, address(0x71C0));
+    }
+
+    function test_depsMustBeSet() public {
+        address ok = address(0xBEEF);
+        vm.expectRevert(bytes("DeployEscrow: DENYLIST unset"));
+        deploy.requireDeps(address(0), ok, ok);
+        vm.expectRevert(bytes("DeployEscrow: VAULT unset"));
+        deploy.requireDeps(ok, address(0), ok);
+        vm.expectRevert(bytes("DeployEscrow: DISPUTE_PANEL unset"));
+        deploy.requireDeps(ok, ok, address(0));
+        deploy.requireDeps(ok, ok, ok);
+    }
+
+    function test_readAddressUnsetReverts() public {
+        vm.expectRevert(bytes("DeployEscrow: DENYLIST unset"));
+        deploy.readAddress("DENYLIST", "DeployEscrow: DENYLIST unset");
+    }
+
+    function test_readAddressZeroReverts() public {
+        vm.setEnv("DENYLIST", vm.toString(address(0)));
+        vm.expectRevert(bytes("DeployEscrow: DENYLIST unset"));
+        deploy.readAddress("DENYLIST", "DeployEscrow: DENYLIST unset");
+    }
+
+    function test_deployWiresDepsAndHandsOffToTimelock() public {
+        Denylist denylist = new Denylist();
+        Vault vault = new Vault(address(denylist));
+        DisputePanel panel = new DisputePanel();
+        address timelock = address(0x71C0);
+
+        BotAttestationEscrow escrow = deploy.deploy(address(denylist), address(vault), address(panel), timelock);
+        assertEq(address(escrow.denylist()), address(denylist));
+        assertEq(address(escrow.vault()), address(vault));
+        assertEq(address(escrow.disputePanel()), address(panel));
+        assertEq(escrow.owner(), address(deploy));
+        assertEq(escrow.pendingOwner(), timelock);
+
+        vm.prank(timelock);
+        escrow.acceptOwnership();
+        assertEq(escrow.owner(), timelock);
+        assertEq(escrow.pendingOwner(), address(0));
     }
 }

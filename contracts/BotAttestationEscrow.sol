@@ -70,6 +70,9 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     event EscrowReleased(bytes32 indexed escrowId, uint256 amount);
     event EscrowRefunded(bytes32 indexed escrowId, uint256 amount);
     event EscrowDisputed(bytes32 indexed escrowId, bytes32 disputeId);
+    event DenylistUpdated(address indexed denylist);
+    event VaultUpdated(address indexed vault);
+    event DisputePanelUpdated(address indexed panel);
 
     error EscrowNotOpen();
     error EscrowExpired();
@@ -78,12 +81,45 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     error Replay();
     error InvalidDispute();
     error DisputePending();
+    error ZeroAddress();
 
     constructor(address _denylist, address _vault, address _panel) Ownable(msg.sender) {
-        if (_panel == address(0)) revert InvalidDispute();
+        _setDenylist(_denylist);
+        _setVault(_vault);
+        _setDisputePanel(_panel);
+    }
+
+    /// @notice Re-point denylist after deploy (timelock/owner only).
+    function setDenylist(address _denylist) external onlyOwner {
+        _setDenylist(_denylist);
+    }
+
+    /// @notice Re-point vault after deploy (timelock/owner only).
+    function setVault(address _vault) external onlyOwner {
+        _setVault(_vault);
+    }
+
+    /// @notice Re-point dispute panel after deploy (timelock/owner only).
+    function setDisputePanel(address _panel) external onlyOwner {
+        _setDisputePanel(_panel);
+    }
+
+    function _setDenylist(address _denylist) internal {
+        if (_denylist == address(0)) revert ZeroAddress();
         denylist = IDenylist(_denylist);
+        emit DenylistUpdated(_denylist);
+    }
+
+    function _setVault(address _vault) internal {
+        if (_vault == address(0)) revert ZeroAddress();
         vault = IVault(_vault);
+        emit VaultUpdated(_vault);
+    }
+
+    function _setDisputePanel(address _panel) internal {
+        if (_panel == address(0)) revert ZeroAddress();
         disputePanel = IDisputePanel(_panel);
+        emit DisputePanelUpdated(_panel);
     }
 
     /// @notice Create an escrow for a bot-to-bot payment.
