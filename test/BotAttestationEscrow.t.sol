@@ -2,10 +2,10 @@
 // Tests for BotAttestationEscrow using Foundry (forge test).
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
-import { BotAttestationEscrow } from "../contracts/BotAttestationEscrow.sol";
-import { Denylist } from "../contracts/Denylist.sol";
-import { Vault } from "../contracts/Vault.sol";
+import {Test} from "forge-std/Test.sol";
+import {BotAttestationEscrow} from "../contracts/BotAttestationEscrow.sol";
+import {Denylist} from "../contracts/Denylist.sol";
+import {Vault} from "../contracts/Vault.sol";
 
 contract BotAttestationEscrowTest is Test {
     Denylist denylist;
