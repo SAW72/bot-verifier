@@ -10,7 +10,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 interface IDenylist {
     enum MatchLevel { None, PromptReview, SignatureBlock, ExactBlock }
-    function check(bytes32, bytes32, bytes32) external returns (MatchLevel);
+    function check(bytes32, bytes32, bytes32) external view returns (MatchLevel);
 }
 
 interface IVault {
