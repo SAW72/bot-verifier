@@ -72,7 +72,9 @@ contract DisputePanel {
         subjectHash = d.subjectHash;
     }
 
+    /// @notice Open a dispute. Reverts until the owner has seated `PANEL_SIZE` (3) arbitrators.
     function openDispute(bytes32 disputeId, bytes32 subjectHash, string calldata reason) external {
+        require(arbitratorCount >= PANEL_SIZE, "panel not seated");
         require(disputes[disputeId].createdAt == 0, "exists");
         disputes[disputeId] = Dispute({
             subjectHash: subjectHash,

@@ -69,6 +69,7 @@ contract Deploy is Script {
         console.log("Liability", address(liability));
         console.log("DisputePanel", address(panel));
         console.log("CORE_TIMELOCK", timelock);
-        console.log("Post these addresses in contracts/README.md after deploy. Never commit PRIVATE_KEY.");
+        console.log("Post these addresses in contracts/README.md and deployments/base-sepolia.json. Never commit PRIVATE_KEY.");
+        console.log("Post-step: CORE_TIMELOCK must setArbitrator three times before openDispute (reverts until arbitratorCount >= 3).");
     }
 }

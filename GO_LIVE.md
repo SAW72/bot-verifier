@@ -19,10 +19,16 @@ Privileged stamp writes (`POST /v1/bots`, denylist, history) are rejected withou
 - [ ] Hit `GET /v1/bots/grok-001/stamp` (add `?attestation=true` only when the run is attestation-grade)
 
 ## Stage 2 — testnet contracts
+
+Base Sepolia (**84532**) only. Mainnet always reverts. Agents do not `--broadcast`. Keys stay in the environment.
+
 - [ ] `forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts`
-- [ ] Deploy core stack with `script/Deploy.s.sol` (`CORE_TIMELOCK` required; Liability then InsuranceFund for immutable `onlyLiability`)
-- [ ] Deploy the additive BVT stack with `script/DeployBVT.s.sol` (agents do not `--broadcast`)
-- [ ] Record addresses in `deployments/base-sepolia.json` and `contracts/README.md`
+- [ ] `forge build && forge test`
+- [ ] **(1) Core** — `script/Deploy.s.sol`. Env: `PRIVATE_KEY`, `CORE_TIMELOCK` (required, ≠ deployer). Inside the script: Denylist → Vault(denylist) → Liability(`address(0)`) → InsuranceFund(liability) → `bindInsurance` → DisputePanel. Then `transferOwnership(CORE_TIMELOCK)` on Denylist and Vault (OZ **Ownable2Step** — ownership does not move until the timelock calls `acceptOwnership`) and `setOwner(CORE_TIMELOCK)` on InsuranceFund, Liability, and DisputePanel (immediate).
+- [ ] **Panel seat** — `CORE_TIMELOCK` calls `DisputePanel.setArbitrator` three times. `openDispute` reverts `panel not seated` until `arbitratorCount >= 3`.
+- [ ] **(2) Escrow** — `script/DeployBotAttestationEscrow.s.sol`. Env: `DENYLIST`, `VAULT`, `DISPUTE_PANEL`, `CORE_TIMELOCK` (all required, non-zero; timelock ≠ deployer). Script `transferOwnership(CORE_TIMELOCK)`; timelock must `acceptOwnership`.
+- [ ] **(3) Optional BVT** — `script/DeployBVT.s.sol`. Env: `BVT_GUARDIAN` (required, non-zero, ≠ deployer). Optional `BVT_INSURANCE_SINK`, `BVT_TREASURY`.
+- [ ] Record addresses and deploy txs in `deployments/base-sepolia.json` (committed template; null until this step) and `contracts/README.md`
 - [ ] Point the stamp API at those addresses
 - [ ] Bootstrap operators via `BVTStaking.bootstrapOperator` — not a public sale
 

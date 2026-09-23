@@ -7,11 +7,18 @@ Working Solidity for the on-chain layers. **Testnet only.** Mainnet is refused b
 - `Vault.sol` — trusted-bot registry with capability tiers and irreversible burn. Constructor: `Vault(denylist)`.
 - `InsuranceFund.sol` — fee-funded backstop. Constructor: `InsuranceFund(liability)` (immutable `onlyLiability` on `payout`).
 - `Liability.sol` — owner → auditor → insurance waterfall. Constructor: `Liability(insuranceFund)` or `Liability(address(0))` then `bindInsurance`.
-- `DisputePanel.sol` — 3-arbitrator **allowlist**. Only `setArbitrator` appointees may vote.
+- `DisputePanel.sol` — 3-arbitrator **allowlist**. Only `setArbitrator` appointees may vote. `openDispute` reverts until three arbitrators are seated.
+- `BotAttestationEscrow.sol` — bot-to-bot escrow. Release after mutual attestation; an upheld dispute stays releasable after expiry. Panel unwind or an unresolved expiry refunds the payer.
 
 ## Deploy order (dependency-correct)
 
-Liability is created first (with `address(0)` insurance) so `InsuranceFund` can freeze the Liability address as an immutable `onlyLiability` caller, then `bindInsurance` sets the reverse pointer. `CORE_TIMELOCK` (≠ deployer) receives ownership:
+Three scripts, in this order. Agents simulate only. Spencer broadcasts. Record each address in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json) (committed template; addresses start null).
+
+### (1) Core — `script/Deploy.s.sol`
+
+Env: `PRIVATE_KEY`, `CORE_TIMELOCK` (required, non-zero, **≠ deployer**).
+
+Liability is created first (with `address(0)` insurance) so `InsuranceFund` can freeze the Liability address as an immutable `onlyLiability` caller, then `bindInsurance` sets the reverse pointer:
 
 1. `Denylist`
 2. `Vault(denylist)`
@@ -19,8 +26,26 @@ Liability is created first (with `address(0)` insurance) so `InsuranceFund` can 
 4. `InsuranceFund(liability)`
 5. `liability.bindInsurance(insurance)`
 6. `DisputePanel`
-7. `transferOwnership(CORE_TIMELOCK)` on Denylist and Vault (OZ **Ownable2Step** — timelock must `acceptOwnership`)
-8. `setOwner(CORE_TIMELOCK)` on InsuranceFund, Liability, DisputePanel
+7. `transferOwnership(CORE_TIMELOCK)` on Denylist and Vault (OZ **Ownable2Step** — deployer stays owner until the timelock calls `acceptOwnership`)
+8. `setOwner(CORE_TIMELOCK)` on InsuranceFund, Liability, DisputePanel (immediate; not two-step)
+
+**Post-step (panel seat).** `DisputePanel.openDispute` reverts `panel not seated` until `arbitratorCount >= 3`. After `setOwner`, only `CORE_TIMELOCK` can call `setArbitrator` — appoint three distinct arbitrators before any dispute is opened. The deploy script does not appoint them.
+
+### (2) Escrow — `script/DeployBotAttestationEscrow.s.sol`
+
+Run only after (1), using the deployed addresses. Env (all required, non-zero):
+
+- `PRIVATE_KEY`
+- `DENYLIST`
+- `VAULT`
+- `DISPUTE_PANEL`
+- `CORE_TIMELOCK` (≠ deployer)
+
+The script deploys `BotAttestationEscrow(denylist, vault, panel)` and `transferOwnership(CORE_TIMELOCK)`. **Ownable2Step:** the timelock must `acceptOwnership` or the deployer remains owner. It does not redeploy Denylist, Vault, or DisputePanel.
+
+### (3) Optional BVT — `script/DeployBVT.s.sol`
+
+Env: `PRIVATE_KEY`, `BVT_GUARDIAN` (required, non-zero, ≠ deployer). Optional: `BVT_INSURANCE_SINK`, `BVT_TREASURY` (default to the BVT timelock). Does not touch the core or escrow contracts. See the BVT section below.
 
 ## Chainid guard
 
@@ -60,6 +85,9 @@ forge script script/Deploy.s.sol:Deploy --rpc-url "$BASE_SEPOLIA_RPC_URL"
 forge script script/Deploy.s.sol:Deploy \
   --rpc-url "$BASE_SEPOLIA_RPC_URL" \
   --broadcast
+
+# After the create tx: CORE_TIMELOCK acceptOwnership() on Denylist and Vault.
+# Then CORE_TIMELOCK setArbitrator three times so DisputePanel.openDispute can succeed.
 ```
 
 Optional verify (needs a Basescan key in the environment, not the repo):
@@ -72,11 +100,31 @@ forge script script/Deploy.s.sol:Deploy \
   --etherscan-api-key "$BASESCAN_API_KEY"
 ```
 
-After a successful broadcast, paste addresses below. Do not commit `.env`.
+After a successful broadcast, paste addresses below and in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json). Do not commit `.env`.
+
+### Escrow deploy (after core addresses exist)
+
+```bash
+export DENYLIST=0x...          # from the core broadcast
+export VAULT=0x...
+export DISPUTE_PANEL=0x...
+export CORE_TIMELOCK=0x...     # same timelock; must not be the deployer
+
+# simulate (no broadcast)
+forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+
+# YOU run this. Agents must not --broadcast.
+forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" \
+  --broadcast
+```
+
+Then `CORE_TIMELOCK` calls `acceptOwnership()` on `BotAttestationEscrow`.
 
 ## Base Sepolia addresses (84532)
 
-Fill in after Spencer broadcasts `script/Deploy.s.sol`.
+Fill in after Spencer broadcasts. Canonical copy: `deployments/base-sepolia.json` (template until then).
 
 | Contract | Address | Tx |
 | --- | --- | --- |
@@ -85,6 +133,7 @@ Fill in after Spencer broadcasts `script/Deploy.s.sol`.
 | InsuranceFund | _pending Spencer deploy_ | |
 | Liability | _pending Spencer deploy_ | |
 | DisputePanel | _pending Spencer deploy_ | |
+| BotAttestationEscrow | _pending Spencer deploy_ | |
 
 ## BVT stack (additive)
 
