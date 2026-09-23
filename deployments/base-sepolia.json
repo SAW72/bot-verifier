@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "chainId": 84532,
+  "network": "base-sepolia",
+  "status": "template",
+  "notes": "TEMPLATE. Spencer fills address and deployTx after a Base Sepolia broadcast. Leave null and empty until then. Agents must not --broadcast. Never put PRIVATE_KEY or other secrets in this file. Schema comments: deployments/README.md.",
+  "coreTimelock": null,
+  "bvtGuardian": null,
+  "Denylist": {
+    "address": null,
+    "deployTx": ""
+  },
+  "Vault": {
+    "address": null,
+    "deployTx": ""
+  },
+  "Liability": {
+    "address": null,
+    "deployTx": ""
+  },
+  "InsuranceFund": {
+    "address": null,
+    "deployTx": ""
+  },
+  "DisputePanel": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BotAttestationEscrow": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVT": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVTStaking": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVTFeeRouter": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVTTimelock": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVTGovernor": {
+    "address": null,
+    "deployTx": ""
+  }
+}

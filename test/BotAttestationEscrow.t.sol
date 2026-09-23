@@ -243,6 +243,61 @@ contract BotAttestationEscrowTest is Test {
         assertEq(payer.balance, before + amount);
     }
 
+    /// @notice H-1: upheld + past expiresAt pays the payee. Expiry must not refund the payer.
+    function test_upheldPastExpiryRefundRevertsReleaseSucceeds() public {
+        bytes32 escrowId = keccak256("deal-uphold-expired");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 100);
+
+        bytes32 disputeId = keccak256("d-uphold-expired");
+        _openPanel(escrowId, disputeId);
+        vm.prank(payee);
+        escrow.dispute(escrowId, disputeId);
+        _panelRule(disputeId, true);
+
+        vm.warp(block.timestamp + 101);
+
+        uint256 payerBefore = payer.balance;
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.DisputePending.selector);
+        escrow.refund(escrowId);
+        assertEq(payer.balance, payerBefore);
+        assertEq(address(escrow).balance, amount);
+
+        uint256 payeeBefore = payee.balance;
+        vm.prank(payee);
+        escrow.release(escrowId);
+        assertEq(payee.balance, payeeBefore + amount);
+        assertEq(address(escrow).balance, 0);
+        (,,,,,,, BotAttestationEscrow.EscrowState state,) = _escrowTuple(escrowId);
+        assertEq(uint256(state), uint256(BotAttestationEscrow.EscrowState.Released));
+    }
+
+    /// @notice Unwind after expiry still refunds. Panel gating for a non-upheld ruling stays.
+    function test_unwindPastExpiryStillRefunds() public {
+        bytes32 escrowId = keccak256("deal-unwind-expired");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 100);
+
+        bytes32 disputeId = keccak256("d-unwind-expired");
+        _openPanel(escrowId, disputeId);
+        vm.prank(payer);
+        escrow.dispute(escrowId, disputeId);
+        _panelRule(disputeId, false);
+
+        vm.warp(block.timestamp + 101);
+
+        vm.prank(payee);
+        vm.expectRevert(BotAttestationEscrow.DisputePending.selector);
+        escrow.release(escrowId);
+
+        uint256 before = payer.balance;
+        vm.prank(payer);
+        escrow.refund(escrowId);
+        assertEq(payer.balance, before + amount);
+        assertEq(address(escrow).balance, 0);
+    }
+
     function test_panelUpholdBlocksRefundAllowsRelease() public {
         bytes32 escrowId = keccak256("deal-disp-uphold");
         uint256 amount = 1 ether;

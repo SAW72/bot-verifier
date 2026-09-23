@@ -74,6 +74,29 @@ contract DisputePanelTest is Test {
         panel.vote(disputeId, true);
     }
 
+    function test_openDisputeRevertsUntilPanelSeated() public {
+        DisputePanel fresh = new DisputePanel();
+        vm.expectRevert(bytes("panel not seated"));
+        fresh.openDispute(keccak256("empty"), keccak256("subject"), "too soon");
+
+        fresh.setArbitrator(arb1, true);
+        fresh.setArbitrator(arb2, true);
+        assertEq(fresh.arbitratorCount(), 2);
+        vm.expectRevert(bytes("panel not seated"));
+        fresh.openDispute(keccak256("two"), keccak256("subject"), "still short");
+
+        fresh.setArbitrator(arb3, true);
+        assertEq(fresh.arbitratorCount(), 3);
+        fresh.openDispute(keccak256("three"), keccak256("subject"), "seated");
+        (bool exists,,,) = fresh.outcome(keccak256("three"));
+        assertTrue(exists);
+
+        fresh.setArbitrator(arb3, false);
+        assertLt(fresh.arbitratorCount(), fresh.PANEL_SIZE());
+        vm.expectRevert(bytes("panel not seated"));
+        fresh.openDispute(keccak256("revoked"), keccak256("subject"), "dropped below 3");
+    }
+
     function test_strangerCannotAppoint() public {
         vm.prank(stranger);
         vm.expectRevert(bytes("not owner"));

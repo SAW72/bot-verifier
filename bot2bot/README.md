@@ -12,8 +12,9 @@ pass the same check.
    bot ids and the amount.
 3. Either side (or a watcher) calls `release(escrowId)` once both bots are
    active, Financial-tier or above, and clean on the denylist.
-4. If the escrow expires or a dispute is raised, `refund` returns funds to
-   the payer.
+4. `refund` returns funds to the payer if the escrow expires with no upheld
+   dispute, or if the panel rules an unwind. An upheld dispute pays the payee
+   via `release`, including after `expiresAt`. `refund` reverts in that case.
 
 ## Files
 

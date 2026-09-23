@@ -172,14 +172,19 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     /// @notice Release funds to the payee after mutual attestation checks pass.
     /// @dev Both bots must be active in the Vault, not denylisted, and hold Financial+ tier.
     ///      A disputed escrow can release only if the panel upheld the original deal.
+    ///      That upheld path stays open after `expiresAt`: expiry must not strand the payee
+    ///      or let `refund` pay the payer once the panel has ruled the deal stands.
     function release(bytes32 escrowId) external nonReentrant {
         Escrow storage e = escrows[escrowId];
+        bool panelUpheld = false;
         if (e.state == EscrowState.Disputed) {
             _requirePanelUpheld(e, escrowId);
+            panelUpheld = true;
         } else if (e.state != EscrowState.Open) {
             revert EscrowNotOpen();
         }
-        if (block.timestamp > e.expiresAt) revert EscrowExpired();
+        // Open escrows expire. An upheld dispute does not: release remains the payee path.
+        if (!panelUpheld && block.timestamp > e.expiresAt) revert EscrowExpired();
 
         _requireBoundOperators(e);
         _verifyBot(e.payerBotId, "payer");
@@ -193,15 +198,20 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
 
     /// @notice Refund the payer if the escrow expires or the panel rules an unwind.
     /// @dev `Disputed` alone is not enough — that would let either party unwind unilaterally.
+    ///      An upheld panel ruling closes refund permanently, including after `expiresAt`.
+    ///      Expiry remains the backstop only when the panel has not upheld the deal
+    ///      (still pending, or resolved as an unwind).
     function refund(bytes32 escrowId) external nonReentrant {
         Escrow storage e = escrows[escrowId];
         if (e.state == EscrowState.Open) {
             require(block.timestamp > e.expiresAt, "not expired");
         } else if (e.state == EscrowState.Disputed) {
+            // Upheld means the original deal stands. Do not let expiry flip that into a payer refund.
+            if (_panelUpheld(e, escrowId)) revert DisputePending();
             if (block.timestamp <= e.expiresAt) {
                 _requirePanelUnwind(e, escrowId);
             }
-            // else: expiry is the timelock backstop even if the panel never ruled
+            // else: expiry is the timelock backstop when the panel has not upheld
         } else {
             revert EscrowNotOpen();
         }
@@ -229,6 +239,12 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     function _requireBoundOperators(Escrow storage e) internal view {
         if (vault.operator(e.payerBotId) != e.payer) revert InvalidParties();
         if (vault.operator(e.payeeBotId) != e.payee) revert InvalidParties();
+    }
+
+    /// @dev True only when this escrow's panel case exists, matches, is resolved, and is upheld.
+    function _panelUpheld(Escrow storage e, bytes32 escrowId) internal view returns (bool) {
+        (bool exists, bool resolved, bool upheld, bytes32 subject) = disputePanel.outcome(e.disputeId);
+        return exists && subject == escrowId && resolved && upheld;
     }
 
     function _requirePanelUnwind(Escrow storage e, bytes32 escrowId) internal view {

@@ -67,7 +67,7 @@ contract Liability {
     }
 
     /// @notice File a claim. liableParty is determined off-chain from audit trail,
-    /// but recorded here for on-chain settlement.
+    /// but recorded here for on-chain settlement. A claimId cannot be overwritten.
     function fileClaim(
         bytes32 claimId,
         bytes32 botId,
@@ -76,6 +76,9 @@ contract Liability {
         uint256 amount,
         Party liable
     ) external onlyOwner {
+        // createdAt == 0 is the empty slot. Timestamp 0 would collide with that sentinel.
+        require(block.timestamp != 0, "timestamp unset");
+        require(claims[claimId].createdAt == 0, "claim exists");
         require(!incidentKnown[incidentHash], "incident already claimed");
         require(amount > 0, "zero amount");
         claims[claimId] = Claim({
