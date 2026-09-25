@@ -85,9 +85,11 @@ export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 # forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
 # (3) optional BVT stack (hardened roles; sinks default to timelock). BVT_GUARDIAN required (≠ deployer):
 # forge script script/DeployBVT.s.sol:DeployBVT --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
+# Denylist + Vault tip-bytecode redeploy (simulate only; Spencer broadcasts). See script/DEPLOY_DENYLIST.md
+# forge script script/DeployDenylist.s.sol:DeployDenylist --rpc-url $BASE_SEPOLIA_RPC_URL -vvvv
 ```
 
-Core `Deploy.s.sol`, `DeployBotAttestationEscrow.s.sol`, and additive `DeployBVT.s.sol` all revert on Ethereum mainnet (`chainid == 1`) and on any chain other than Base Sepolia. ETH Sepolia (`11155111`) is a documented one-line switch. Paste addresses into `deployments/base-sepolia.json` and `contracts/README.md` after deploy.
+Core `Deploy.s.sol`, `DeployDenylist.s.sol`, `DeployBotAttestationEscrow.s.sol`, and additive `DeployBVT.s.sol` all revert on Ethereum mainnet (`chainid == 1`) and on any chain other than Base Sepolia. ETH Sepolia (`11155111`) is a documented one-line switch. Paste addresses into `deployments/base-sepolia.json` and `contracts/README.md` after deploy. The Denylist redeploy does not invent those addresses; Spencer writes them after he broadcasts.
 
 ## Status
 Architecture complete. Core runner (stub + live Grok client), denylist, vault, liability, insurance, dispute, meta-audit, key management, Base Sepolia Foundry deploy, and the BVT staking/fee/governance stack are real code. Remaining: Spencer broadcasts the testnet deploys, and run the first live attested audit.

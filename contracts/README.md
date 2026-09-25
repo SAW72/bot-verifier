@@ -31,6 +31,18 @@ Liability is created first (with `address(0)` insurance) so `InsuranceFund` can 
 
 **Post-step (panel seat).** `DisputePanel.openDispute` reverts `panel not seated` until `arbitratorCount >= 3`. After `setOwner`, only `CORE_TIMELOCK` can call `setArbitrator` — appoint three distinct arbitrators before any dispute is opened. The deploy script does not appoint them.
 
+### Denylist + Vault redeploy — `script/DeployDenylist.s.sol`
+
+Use this for the tip-bytecode cutover. Do not re-run `Deploy.s.sol` for it. The script deploys a new `Denylist` and `Vault(newDenylist)` only, then `transferOwnership(CORE_TIMELOCK)` on both. It does not deploy Liability, InsuranceFund, DisputePanel, Escrow, or BVT, and it does not call the live Denylist.
+
+Env: `PRIVATE_KEY`, `CORE_TIMELOCK` (required, non-zero, **≠ deployer**). RPC is the forge `--rpc-url` (`BASE_SEPOLIA_RPC_URL`). Same chain guard: Base Sepolia **84532** only; mainnet always reverts.
+
+Agents simulate. Spencer broadcasts. `acceptOwnership` on both new contracts, then the listing migration, are in [`script/DEPLOY_DENYLIST.md`](../script/DEPLOY_DENYLIST.md). Spencer writes the real addresses into `deployments/base-sepolia.json` after broadcast. The live Denylist is superseded only after that cutover.
+
+```bash
+forge script script/DeployDenylist.s.sol:DeployDenylist --rpc-url $BASE_SEPOLIA_RPC_URL -vvvv
+```
+
 ### (2) Escrow — `script/DeployBotAttestationEscrow.s.sol`
 
 Run only after (1), using the deployed addresses. Env (all required, non-zero):
