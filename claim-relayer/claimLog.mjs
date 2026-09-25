@@ -13,6 +13,8 @@ const ALLOWED = new Set([
   "expiresAt",
   "chainId",
   "escrowBooked",
+  "escrowAddress",
+  "escrowSource",
   "relayerAddress",
   "relayerNonce",
   "txHash",
@@ -24,6 +26,15 @@ const ALLOWED = new Set([
   "killSwitch",
   "status",
   "field",
+  "action",
+  "signature",
+  "selector",
+  "calldata",
+  "valueWei",
+  "dryRun",
+  "calldataStatus",
+  "senderConstraint",
+  "blockers",
 ]);
 
 /**
@@ -44,9 +55,14 @@ export function sanitizeLogRecord(record) {
       out[key] = value.toString();
       continue;
     }
+    if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+      out[key] = value.join(",");
+      continue;
+    }
     if (typeof value === "string") {
       if (/private[_-]?key|secret|mnemonic|seed phrase/i.test(value)) continue;
-      out[key] = value.slice(0, 300);
+      const limit = key === "calldata" ? 4096 : 300;
+      out[key] = value.slice(0, limit);
     }
   }
   return out;

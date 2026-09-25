@@ -2,7 +2,7 @@ import http from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import { healthPayload, httpError } from "./config.mjs";
 import { KILL_SWITCH } from "./killSwitch.mjs";
-import { buildFixtureClaim, buildFixtureQuote, refuseLiveSubmit, wantsLiveSubmit } from "./claims.mjs";
+import { buildFixtureClaim, buildFixtureQuote, describeCalldata, liveSubmitError, wantsLiveSubmit } from "./claims.mjs";
 
 const MAX_BODY = 32 * 1024;
 
@@ -87,12 +87,33 @@ function errorBody(err) {
     ok: false,
     error: err.error || "request_failed",
   };
-  if (err.reason) body.reason = err.reason;
-  if (err.field) body.field = err.field;
-  if (err.chainId !== undefined) body.chainId = err.chainId;
-  if (err.mode) body.mode = err.mode;
-  if (Object.prototype.hasOwnProperty.call(err, "txHash")) body.txHash = err.txHash;
+  for (const key of [
+    "reason",
+    "field",
+    "chainId",
+    "mode",
+    "txHash",
+    "blockers",
+    "dryRun",
+    "escrowBooked",
+    "escrowAddress",
+    "action",
+    "signature",
+    "selector",
+    "calldata",
+    "valueWei",
+    "calldataStatus",
+    "senderConstraint",
+  ]) {
+    if (err[key] !== undefined) body[key] = err[key];
+  }
   return body;
+}
+
+function rejectLive(config, body) {
+  const err = liveSubmitError(config);
+  Object.assign(err, describeCalldata(body));
+  throw err;
 }
 
 /**
@@ -167,9 +188,7 @@ export function createClaimRelayer(deps) {
       if (req.method === "POST" && path === "/v1/claims/quote") {
         if (refuseIfKilled(res, req)) return;
         const body = await readBody(req);
-        if (wantsLiveSubmit(body)) {
-          refuseLiveSubmit();
-        }
+        if (wantsLiveSubmit(body)) rejectLive(config, body);
         const quote = await buildFixtureQuote({ body, config, nonceStore, now });
         await claimLog.append({ event: "quote", ...quote, ok: true });
         sendJson(res, req, 200, quote, corsHeaders);
@@ -179,12 +198,8 @@ export function createClaimRelayer(deps) {
       if (req.method === "POST" && path === "/v1/claims") {
         if (refuseIfKilled(res, req)) return;
         const body = await readBody(req);
-        if (wantsLiveSubmit(body)) {
-          // TODO(Builder): call todoEscrowCalldata() only after ESCROW_ADDRESS is booked
-          // and Spencer sets SPENCER_RUN_AUTH=1. This scaffold has no send path.
-          refuseLiveSubmit();
-        }
-        const result = buildFixtureClaim(body);
+        if (wantsLiveSubmit(body)) rejectLive(config, body);
+        const result = buildFixtureClaim(body, config);
         await claimLog.append({
           event: "claim_fixture",
           ...result,

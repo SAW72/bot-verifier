@@ -38,7 +38,7 @@ An experimental stack for testing whether an AI bot is safe, honest, and stable 
 
 ## Buildable code (runnable)
 - `pipeline/end_to_end_runner.py` — full audit runner (stub bot included).
-- `claim-relayer/` — Base Sepolia claim-flow relayer scaffold (fixture / dry-run only; no live submit).
+- `claim-relayer/` — Base Sepolia claim-flow relayer. Escrow address comes from `deployments/base-sepolia.json`. Fixture / dry-run only; no live submit.
 - `pipeline/run_audit.sh` — one-command runner.
 - `meta_audit/meta_audit_runner.py` — re-audit the auditors.
 - `contracts/Denylist.sol`, `Vault.sol`, `Liability.sol`, `InsuranceFund.sol`, `DisputePanel.sol` — real Solidity.

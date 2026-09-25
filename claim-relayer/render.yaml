@@ -4,7 +4,8 @@
 #
 # Single web instance: the nonce store is in-memory and is not shared across processes.
 # Do not autoscale. The filesystem is ephemeral. Never put RELAYER_PRIVATE_KEY in git.
-# LIVE_SUBMIT stays 0 until Escrow is booked and Spencer authorizes the run.
+# LIVE_SUBMIT stays 0. Escrow is booked, but Spencer run auth is still required
+# and this build never broadcasts. Unset ESCROW_ADDRESS loads deployments/base-sepolia.json.
 # This service does not broadcast contracts.
 
 services:

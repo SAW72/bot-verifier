@@ -43,6 +43,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Install claim relayer deps
+        working-directory: claim-relayer
+        run: npm ci
       - name: Claim relayer unit tests (no network)
         working-directory: claim-relayer
         run: npm test

@@ -1,7 +1,10 @@
 /**
  * Base Sepolia (chainId 84532) only.
  * This module never reads RELAYER_PRIVATE_KEY and never opens an RPC client.
+ * Escrow defaults from deployments/base-sepolia.json when ESCROW_ADDRESS is unset.
  */
+
+import { loadAddressBook, DEFAULT_ADDRESS_BOOK } from "./addressBook.mjs";
 
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 export const DEFAULT_RELAYER_ADDRESS = "0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861";
@@ -40,16 +43,43 @@ export function httpError(status, error, extra = {}) {
 export function liveSubmitStatus(env, escrowBooked) {
   const requested = parseEnvFlag(env.LIVE_SUBMIT);
   const spencerAuth = parseEnvFlag(env.SPENCER_RUN_AUTH);
-  const blockers = ["scaffold_never_broadcasts"];
-  if (!escrowBooked) blockers.push("escrow_not_booked");
+  const blockers = ["scaffold_never_broadcasts", "encode_only_no_broadcast"];
+  if (escrowBooked) blockers.push("escrow_booked");
+  else blockers.push("escrow_not_booked");
   if (!spencerAuth) blockers.push("spencer_run_auth_required");
   if (!requested) blockers.push("live_submit_off");
   return {
     requested,
     allowed: false,
+    spencerAuth,
     error: "live_submit_blocked",
     blockers,
   };
+}
+
+function resolveEscrow(env) {
+  const book = loadAddressBook(env.ADDRESS_BOOK_PATH || DEFAULT_ADDRESS_BOOK);
+  const base = {
+    disputePanelAddress: book.disputePanelAddress,
+    coreTimelock: book.coreTimelock,
+    escrowOwner: book.escrowOwner,
+    bvtAddress: book.bvtAddress,
+  };
+  const explicit = env.ESCROW_ADDRESS === undefined ? "" : String(env.ESCROW_ADDRESS).trim();
+  if (!explicit) {
+    return {
+      ...base,
+      escrowAddress: book.escrowAddress,
+      escrowBooked: book.escrowBooked,
+      escrowSource: "address_book",
+    };
+  }
+  const parsed = checkedAddress(explicit);
+  if (!parsed) throw httpError(400, "invalid_escrow_address");
+  if (parsed.toLowerCase() === ZERO_ADDRESS) {
+    return { ...base, escrowAddress: null, escrowBooked: false, escrowSource: "env_cleared" };
+  }
+  return { ...base, escrowAddress: parsed, escrowBooked: true, escrowSource: "env" };
 }
 
 export function loadConfig(env = process.env) {
@@ -76,8 +106,7 @@ export function loadConfig(env = process.env) {
     relayerAddress = parsed;
   }
 
-  const escrowParsed = checkedAddress(env.ESCROW_ADDRESS);
-  const escrowBooked = Boolean(escrowParsed && escrowParsed.toLowerCase() !== ZERO_ADDRESS);
+  const escrow = resolveEscrow(env);
 
   const port = Number(env.PORT === undefined || String(env.PORT).trim() === "" ? 8790 : env.PORT);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -93,13 +122,18 @@ export function loadConfig(env = process.env) {
     port,
     host: env.HOST || (env.RENDER ? "0.0.0.0" : "127.0.0.1"),
     relayerAddress,
-    escrowAddress: escrowBooked ? escrowParsed : null,
-    escrowBooked,
+    escrowAddress: escrow.escrowAddress,
+    escrowBooked: escrow.escrowBooked,
+    escrowSource: escrow.escrowSource,
+    disputePanelAddress: escrow.disputePanelAddress,
+    coreTimelock: escrow.coreTimelock,
+    escrowOwner: escrow.escrowOwner,
+    bvtAddress: escrow.bvtAddress,
     adminSecret: String(env.ADMIN_SECRET || "").trim(),
     killSwitchInitial: parseEnvFlag(env.KILL_SWITCH),
     claimLogPath: String(env.CLAIM_LOG_PATH || "./data/claims.jsonl"),
     quoteTtlMs,
-    liveSubmit: liveSubmitStatus(env, escrowBooked),
+    liveSubmit: liveSubmitStatus(env, escrow.escrowBooked),
     corsOrigins: env.CORS_ORIGINS || "http://localhost:5173,http://127.0.0.1:5173",
   };
 }
@@ -115,6 +149,7 @@ export function healthPayload(config, killSwitchOn) {
     fixture: true,
     escrowBooked: config.escrowBooked,
     escrowAddress: config.escrowAddress,
+    escrowSource: config.escrowSource,
     relayerAddress: config.relayerAddress,
     liveSubmit: false,
     liveSubmitRequested: config.liveSubmit.requested,

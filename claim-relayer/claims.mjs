@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { BASE_SEPOLIA_CHAIN_ID, ZERO_ADDRESS, httpError, isAddress } from "./config.mjs";
+import { encodeEscrowAction } from "./escrowCalldata.mjs";
 
 const CLAIM_ID_RE = /^(?:fixture-[0-9a-f]{8,32}|0x[0-9a-fA-F]{64}|[A-Za-z0-9:_-]{1,80})$/;
 
@@ -52,25 +53,39 @@ export function wantsLiveSubmit(body) {
   return body.live === true || body.liveSubmit === true || mode === "live" || mode === "broadcast";
 }
 
-export function refuseLiveSubmit() {
-  throw httpError(409, "live_submit_blocked", {
-    reason: "awaiting_escrow_booking_and_spencer_run_auth",
+export function refusalReason(config) {
+  if (!config?.escrowBooked) return "escrow_not_booked";
+  if (!config.liveSubmit?.spencerAuth) return "escrow_booked_spencer_run_auth_required";
+  return "scaffold_never_broadcasts";
+}
+
+export function liveSubmitError(config) {
+  return httpError(409, "live_submit_blocked", {
+    reason: refusalReason(config),
+    blockers: config.liveSubmit.blockers,
     mode: "fixture",
     txHash: null,
+    dryRun: true,
+    escrowBooked: config.escrowBooked,
+    escrowAddress: config.escrowAddress,
   });
 }
 
-/**
- * TODO(Builder): lock the claim calldata ABI, then encode BotAttestationEscrow
- * createEscrow / release / refund here. Do not broadcast from this function.
- * Live submit stays off until Escrow is booked and Spencer authorizes the run.
- */
-export function todoEscrowCalldata() {
-  throw httpError(409, "live_submit_blocked", {
-    reason: "claim_calldata_abi_not_locked",
-    mode: "fixture",
-    txHash: null,
-  });
+/** Encode claim calldata when `action` is set. Never signs or broadcasts. */
+export function describeCalldata(body) {
+  if (!body || body.action === undefined || body.action === null || String(body.action).trim() === "") {
+    return { calldata: null, calldataStatus: "action_required" };
+  }
+  const encoded = encodeEscrowAction(body);
+  return {
+    action: encoded.action,
+    signature: encoded.signature,
+    selector: encoded.selector,
+    calldata: encoded.calldata,
+    valueWei: encoded.valueWei,
+    senderConstraint: encoded.senderConstraint,
+    calldataStatus: "encoded",
+  };
 }
 
 export async function buildFixtureQuote({ body, config, nonceStore, now }) {
@@ -95,13 +110,16 @@ export async function buildFixtureQuote({ body, config, nonceStore, now }) {
     expiresAt: new Date(reserved.expiresAtMs).toISOString(),
     chainId: BASE_SEPOLIA_CHAIN_ID,
     mode: "fixture",
+    dryRun: true,
     escrowBooked: config.escrowBooked,
+    escrowAddress: config.escrowAddress,
     relayerAddress: config.relayerAddress,
     relayerNonce: reserved.nonce.toString(),
+    ...describeCalldata(body),
   };
 }
 
-export function buildFixtureClaim(body) {
+export function buildFixtureClaim(body, config) {
   assertBaseSepolia(body);
   const claimId = parseClaimId(body.claimId);
   const payer = body.payer !== undefined ? requireAddress(body.payer, "payer") : undefined;
@@ -117,6 +135,10 @@ export function buildFixtureClaim(body) {
     mode: "fixture",
     claimId,
     txHash: null,
-    reason: "live_submit_blocked",
+    reason: refusalReason(config),
+    dryRun: true,
+    escrowBooked: Boolean(config.escrowBooked),
+    escrowAddress: config.escrowAddress,
+    ...describeCalldata(body),
   };
 }

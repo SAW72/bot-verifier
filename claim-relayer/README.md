@@ -1,15 +1,15 @@
 # Claim relayer (Base Sepolia scaffold)
 
-Gas and ops stub for bot-verifier claim flow. Default mode is **fixtures / dry-run**. This process does not sign, does not dial RPC, and does not submit transactions.
+Gas and ops stub for bot-verifier claim flow. Default mode is **fixtures / dry-run**. The HTTP server does not sign or submit transactions. `npm run readonly` is a separate read-only check (`eth_chainId`, `eth_getCode`, `eth_call` only).
 
 Public funding wallet (address only): `0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861`.
 
-`BotAttestationEscrow` and BVT are still null in `deployments/base-sepolia.json`. Leave `ESCROW_ADDRESS` empty until that book is filled. Health then reports `escrowBooked: false`, and `/v1/claims/quote` plus `/v1/claims` stay fixture-only.
+`BotAttestationEscrow` is booked in `deployments/base-sepolia.json` at `0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c`. When `ESCROW_ADDRESS` is unset, health reports `escrowBooked: true` and that address (`escrowSource: "address_book"`). BVT is still null. Set `ESCROW_ADDRESS` to the zero address to force `escrowBooked: false`.
 
 ## HARD STOP
 
 - **Base Sepolia only** (chain id **84532**). Ethereum mainnet (`1`), Base mainnet (`8453`), and every other chain are refused.
-- **No live submit** in this build, even if `RELAYER_PRIVATE_KEY` is set and `LIVE_SUBMIT=1`. The effective gate stays off until **Escrow is booked and Spencer authorizes the run** (`SPENCER_RUN_AUTH=1`). A later change has to add the send path on purpose.
+- **No live submit** in this build, even if `RELAYER_PRIVATE_KEY` is set, `LIVE_SUBMIT=1`, and Escrow is booked. `liveSubmit` stays `false` (`scaffold_never_broadcasts`). Spencer must still set `SPENCER_RUN_AUTH=1` before any future build may send, and this build has no send path.
 - **Agents do not `--broadcast`.** Do not add forge broadcast scripts. Do not deploy Escrow or BVT from here.
 - **Never invent balances.** Quote amounts are echoed from the client. This service does not read wallet balances.
 - **Never commit secrets or private keys.** `RELAYER_PRIVATE_KEY` is a runtime environment variable only. The code does not read it and does not write it to disk or to the JSONL log.
@@ -49,12 +49,13 @@ Tests use Node's built-in runner. They do not touch the network.
   "mode": "fixture",
   "stub": true,
   "fixture": true,
-  "escrowBooked": false,
-  "escrowAddress": null,
+  "escrowBooked": true,
+  "escrowAddress": "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c",
+  "escrowSource": "address_book",
   "relayerAddress": "0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861",
   "liveSubmit": false,
   "liveSubmitRequested": false,
-  "liveSubmitBlockers": ["scaffold_never_broadcasts", "escrow_not_booked", "spencer_run_auth_required", "live_submit_off"]
+  "liveSubmitBlockers": ["scaffold_never_broadcasts", "encode_only_no_broadcast", "escrow_booked", "spencer_run_auth_required", "live_submit_off"]
 }
 ```
 
@@ -86,9 +87,13 @@ Response:
   "expiresAt": "2026-09-25T20:00:00.000Z",
   "chainId": 84532,
   "mode": "fixture",
-  "escrowBooked": false,
+  "dryRun": true,
+  "escrowBooked": true,
+  "escrowAddress": "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c",
   "relayerAddress": "0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861",
-  "relayerNonce": "0"
+  "relayerNonce": "0",
+  "calldata": null,
+  "calldataStatus": "action_required"
 }
 ```
 
@@ -98,30 +103,37 @@ Response:
 
 Request `{ "claimId": "claim-1" }`. Optional `payer`, `payee`, `amountWei`, `chainId`.
 
-Fixture response (live submit off, which is always the case here):
-
-```json
-{ "ok": true, "mode": "fixture", "claimId": "claim-1", "txHash": null, "reason": "live_submit_blocked" }
-```
-
-A client that sets `live: true`, `liveSubmit: true`, or `mode: "live"` gets **409**:
+Fixture response while Escrow is booked and Spencer has not authorized a run:
 
 ```json
 {
-  "ok": false,
-  "error": "live_submit_blocked",
-  "reason": "awaiting_escrow_booking_and_spencer_run_auth",
+  "ok": true,
   "mode": "fixture",
-  "txHash": null
+  "claimId": "claim-1",
+  "txHash": null,
+  "reason": "escrow_booked_spencer_run_auth_required",
+  "dryRun": true,
+  "escrowBooked": true,
+  "escrowAddress": "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c",
+  "calldata": null,
+  "calldataStatus": "action_required"
 }
 ```
+
+Set `action` to `createEscrow`, `release`, `refund`, or `dispute` to get real calldata. `valueWei` is `msg.value` for `createEscrow` and `"0"` otherwise. It is not an ABI argument. No transaction is sent.
+
+A client that sets `live: true`, `liveSubmit: true`, or `mode: "live"` gets **409** `live_submit_blocked`. With Escrow booked and `SPENCER_RUN_AUTH` unset, `reason` is `escrow_booked_spencer_run_auth_required`. If Spencer auth is set and Escrow is booked, `reason` is still `scaffold_never_broadcasts`. `txHash` is null.
 
 ## Error codes
 
 | HTTP | `error` | When |
 | --- | --- | --- |
 | 503 | `kill_switch` | Kill switch is on. Quote and claim are refused. Health stays 200. |
-| 409 | `live_submit_blocked` | Client asked for a live transaction. |
+| 409 | `live_submit_blocked` | Client asked for a live transaction. `reason` is `escrow_not_booked`, `escrow_booked_spencer_run_auth_required`, or `scaffold_never_broadcasts`. |
+| 400 | `action_not_claim` | `action` is not `createEscrow`, `release`, `refund`, or `dispute`. Governance setters are refused. |
+| 400 | `invalid_bytes32` | `escrowId` / bot id / `disputeId` is not a non-zero bytes32. |
+| 400 | `invalid_duration` | `durationSeconds` is outside `1..2592000` (`30 days` on the contract). |
+| 400 | `value_not_allowed` | `amountWei` was sent with `release`, `refund`, or `dispute`. |
 | 400 | `mainnet_refused` | `chainId` is `1` or `8453`. |
 | 400 | `wrong_chain` | Any chain other than `84532`. |
 | 400 | `invalid_address` | `payer` or `payee` is missing or not a 20-byte hex address. |
@@ -152,7 +164,20 @@ Reservations live in memory for one process. Render must run **one web instance*
 
 ## Claim calldata
 
-Builder will lock the Escrow calldata ABI later and inject it at `todoEscrowCalldata()` in `claims.mjs`. The on-chain surface today is `createEscrow`, `release`, and `refund` on `contracts/BotAttestationEscrow.sol`. Wallet reads of the live Vault can use `contracts/interfaces/IVault.sol`. Do not encode or broadcast that calldata in this scaffold.
+Calldata is encoded in `escrowCalldata.mjs` from the signatures in `contracts/BotAttestationEscrow.sol`:
+
+| Action | Signature | Value | Who may send it later |
+| --- | --- | --- | --- |
+| `createEscrow` | `createEscrow(bytes32,address,bytes32,bytes32,uint256)` | `amountWei` as `msg.value` | Payer bot's Vault operator (`vault_operator_must_send`) |
+| `release` | `release(bytes32)` | 0 | Anyone (`permissionless`) |
+| `refund` | `refund(bytes32)` | 0 | Anyone (`permissionless`) |
+| `dispute` | `dispute(bytes32,bytes32)` | 0 | Payer or payee (`party_must_send`) |
+
+Selectors are `keccak256` of those strings. `setDenylist`, `setVault`, and `setDisputePanel` are not claim actions.
+
+The public funding wallet is not assumed to be a Vault operator. Encoding `createEscrow` does not make a later broadcast valid. This build never sends it.
+
+`npm run readonly` performs `eth_chainId`, `eth_getCode`, and `eth_call` only (`owner`, `governance`, `disputePanel`, `arbitratorCount`). It is not part of `npm test`. It refuses every chain other than 84532.
 
 ## Render
 

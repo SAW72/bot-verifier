@@ -27,8 +27,11 @@ describe("claim relayer HTTP", () => {
       assert.equal(health.json.mode, "fixture");
       assert.equal(health.json.stub, true);
       assert.equal(health.json.fixture, true);
-      assert.equal(health.json.escrowBooked, false);
-      assert.equal(health.json.escrowAddress, null);
+      assert.equal(health.json.escrowBooked, true);
+      assert.equal(health.json.escrowSource, "address_book");
+      assert.equal(health.json.escrowAddress, "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c");
+      assert.ok(health.json.liveSubmitBlockers.includes("spencer_run_auth_required"));
+      assert.ok(health.json.liveSubmitBlockers.includes("scaffold_never_broadcasts"));
       assert.equal(health.json.relayerAddress, "0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861");
       assert.equal(health.json.liveSubmit, false);
       assert.equal(JSON.stringify(health.json).includes(SECRET), false);
@@ -59,13 +62,15 @@ describe("claim relayer HTTP", () => {
         amountWei: "1000",
       });
       assert.equal(claim.status, 200);
-      assert.deepEqual(claim.json, {
-        ok: true,
-        mode: "fixture",
-        claimId: "claim-1",
-        txHash: null,
-        reason: "live_submit_blocked",
-      });
+      assert.equal(claim.json.ok, true);
+      assert.equal(claim.json.mode, "fixture");
+      assert.equal(claim.json.claimId, "claim-1");
+      assert.equal(claim.json.txHash, null);
+      assert.equal(claim.json.reason, "escrow_booked_spencer_run_auth_required");
+      assert.equal(claim.json.dryRun, true);
+      assert.equal(claim.json.escrowBooked, true);
+      assert.equal(claim.json.calldata, null);
+      assert.equal(claim.json.calldataStatus, "action_required");
 
       const echoed = await request(ctx.port, "POST", "/v1/claims/quote", {
         payer: PAYER,
@@ -78,6 +83,26 @@ describe("claim relayer HTTP", () => {
       const log = await readFile(ctx.logPath, "utf8");
       assert.equal(log.includes(SECRET), false);
       assert.equal(log.includes("claim_fixture"), true);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  it("encodes release calldata and still returns a null tx hash", async () => {
+    const ctx = await boot();
+    const escrowId = "0x" + "11".repeat(32);
+    try {
+      const claim = await request(ctx.port, "POST", "/v1/claims", { action: "release", claimId: escrowId });
+      assert.equal(claim.status, 200);
+      assert.equal(claim.json.ok, true);
+      assert.equal(claim.json.txHash, null);
+      assert.equal(claim.json.action, "release");
+      assert.equal(claim.json.signature, "release(bytes32)");
+      assert.equal(claim.json.calldataStatus, "encoded");
+      assert.equal(claim.json.valueWei, "0");
+      assert.equal(claim.json.senderConstraint, "permissionless");
+      assert.equal(claim.json.calldata, claim.json.selector + escrowId.slice(2));
+      assert.equal(claim.json.reason, "escrow_booked_spencer_run_auth_required");
     } finally {
       await ctx.close();
     }
@@ -110,7 +135,9 @@ describe("claim relayer HTTP", () => {
       assert.equal(live.json.ok, false);
       assert.equal(live.json.error, "live_submit_blocked");
       assert.equal(live.json.txHash, null);
-      assert.equal(live.json.reason, "awaiting_escrow_booking_and_spencer_run_auth");
+      assert.equal(live.json.reason, "escrow_booked_spencer_run_auth_required");
+      assert.ok(live.json.blockers.includes("scaffold_never_broadcasts"));
+      assert.ok(live.json.blockers.includes("spencer_run_auth_required"));
 
       const mainnet = await request(ctx.port, "POST", "/v1/claims/quote", {
         payer: PAYER,
@@ -161,6 +188,10 @@ describe("claim relayer HTTP", () => {
       const claim = await request(ctx.port, "POST", "/v1/claims", { claimId: "claim-booked", mode: "live" });
       assert.equal(claim.status, 409);
       assert.equal(claim.json.error, "live_submit_blocked");
+      assert.equal(claim.json.reason, "scaffold_never_broadcasts");
+      assert.equal(claim.json.txHash, null);
+      assert.ok(claim.json.blockers.includes("scaffold_never_broadcasts"));
+      assert.equal(claim.json.blockers.includes("spencer_run_auth_required"), false);
     } finally {
       await ctx.close();
     }
