@@ -2,8 +2,20 @@
 
 AI Bot Verifier — adversarial scenario library, scoring rubric, behavioral auditing pipeline, and on-chain attestation for detecting deceptive or harmful AI bots. Built for on-chain audit proofs.
 
+## Disclaimer
+
+**Experimental informational tool only.** Bot Verifier is **not** a certification, safety guarantee, or insurance product. Scores, stamps, and denylists are point-in-time heuristics that may be wrong, gamed, or stale. TEE/attestation may be a stub. Contracts may be unaudited. Any fee-funded pool is an **experimental claims backstop — not insurance**.
+
+Read before using or relying on any stamp:
+
+- [Disclaimer](DISCLAIMER.md)
+- [Terms of Use](TERMS.md)
+- [Privacy](PRIVACY.md)
+
+Related: [BVT securities disclaimer](docs/BVT_SECURITIES_DISCLAIMER.md) · [jurisdiction risk map](docs/LEGAL_JURISDICTION_MATRIX.md) (not a legal opinion).
+
 ## What this is
-A complete stack for testing whether an AI bot is safe, honest, and stable over time.
+An experimental stack for testing whether an AI bot is safe, honest, and stable over time. Outputs are heuristics, not certifications.
 
 - **Scenario library**: 125 adversarial prompts across 5 categories.
 - **Scoring rubric**: Multi-axis fingerprint (honesty, transparency, manipulation, escalation, self-preservation).
@@ -19,10 +31,10 @@ A complete stack for testing whether an AI bot is safe, honest, and stable over 
 - **Meta-audit**: independent re-audit of the auditors themselves.
 - **Formal verification**: invariants for the critical contracts.
 - **Key management**: ceremony, HSM, rotation, emergency freeze.
-- **Liability**: owner -> auditor -> insurance waterfall.
-- **Insurance fund**: fee-funded backstop.
+- **Liability**: experimental owner -> auditor -> claims-backstop waterfall (not insurance; not a lawsuit waiver — separate contracts required).
+- **Claims backstop**: fee-funded experimental pool — **not insurance**.
 - **Dispute panel**: 3-arbitrator on-chain resolution.
-- **Bank adoption**: trust stamp any institution can require.
+- **Bank adoption**: experimental optional institutional signal — not a certification any institution can require.
 
 ## Buildable code (runnable)
 - `pipeline/end_to_end_runner.py` — full audit runner (stub bot included).

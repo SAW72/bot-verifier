@@ -49,6 +49,17 @@ def test_health():
     assert body["privileged_writes"] == "configured"
 
 
+def _assert_no_insurance_field_keys(node):
+    """Live JSON must not use 'insurance' as a field key for the backstop tier."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            assert "insurance" not in str(key).lower()
+            _assert_no_insurance_field_keys(value)
+    elif isinstance(node, list):
+        for item in node:
+            _assert_no_insurance_field_keys(item)
+
+
 def test_register_and_stamp():
     c = _client()
     body = _register_body()
@@ -57,9 +68,43 @@ def test_register_and_stamp():
     stamp = c.get("/v1/bots/bot-1/stamp").json()
     assert stamp["bot_id"] == "bot-1"
     assert stamp["denylist_status"] == "clean"
+    assert stamp["claims_backstop_tier"] == "standard"
+    assert "insurance_level" not in stamp
+    _assert_no_insurance_field_keys(stamp)
     assert stamp["attestation_grade"] is False
     assert stamp["scoring_mode"] == "keyword"
     assert "demo-only" in stamp["scorer_note"]
+    assert "not a certification" in stamp["disclaimer"].lower()
+    assert "not_insurance" in stamp["limitations"]
+    assert stamp["attestation_status"] == "stub_not_hardware_attested"
+    assert stamp["legal_ref"] == "/v1/disclaimer"
+    record = c.get("/v1/bots/bot-1").json()
+    assert record["claims_backstop_tier"] == "standard"
+    _assert_no_insurance_field_keys(record)
+
+
+def test_claims_backstop_tier_round_trip():
+    c = _client()
+    body = _register_body("bot-backstop", claims_backstop_tier="elevated")
+    r = c.post("/v1/bots", json=body, headers=_auth())
+    assert r.status_code == 200
+    registered = r.json()
+    assert registered["stamp"]["claims_backstop_tier"] == "elevated"
+    _assert_no_insurance_field_keys(registered)
+    stamp = c.get("/v1/bots/bot-backstop/stamp").json()
+    assert stamp["claims_backstop_tier"] == "elevated"
+    assert "insurance_level" not in stamp
+
+
+def test_disclaimer_endpoint():
+    c = _client()
+    r = c.get("/v1/disclaimer")
+    assert r.status_code == 200
+    body = r.json()
+    assert "experimental" in body["disclaimer"].lower()
+    assert body["attestation_live"] is False
+    assert body["contracts_firm_audited"] is False
+    assert body["mode"] == "demo_in_memory"
 
 
 def test_financial_blocked_on_low_tier():
@@ -69,7 +114,10 @@ def test_financial_blocked_on_low_tier():
         "bot_id": "bot-2",
         "requested_permissions": ["transfer"],
     })
-    assert r.json()["allowed"] is False
+    payload = r.json()
+    assert payload["allowed"] is False
+    assert "disclaimer" in payload
+    assert "not insurance" in payload["disclaimer"].lower()
 
 
 def test_privileged_register_rejects_unauthenticated():
@@ -236,3 +284,5 @@ def test_denylist_write_with_auth_then_public_read():
     access = c.post("/v1/access/check", json={"bot_id": "bot-1", "requested_permissions": []})
     assert access.json()["allowed"] is False
     assert "denylisted" in access.json()["reason"]
+    assert "disclaimer" in access.json()
+    assert "not insurance" in access.json()["disclaimer"].lower()
