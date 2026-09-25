@@ -34,8 +34,27 @@ contract OpsDisputePanelGuardTest is Test {
         assertEq(book.readUint(".chainId"), addOp.ALLOWED_CHAIN_ID());
         assertEq(seatOp.LIVE_DISPUTE_PANEL(), livePanel);
         assertEq(book.readString(".BotAttestationEscrow.deployTx"), "");
-        bytes memory escrowAddr = book.parseRaw(".BotAttestationEscrow.address");
-        assertEq(escrowAddr.length, 0);
+        assertTrue(_contains(book, '"BotAttestationEscrow": {\n    "address": null,\n    "deployTx": ""'));
+    }
+
+    function _contains(
+        string memory haystack,
+        string memory needle
+    ) internal pure returns (bool) {
+        bytes memory h = bytes(haystack);
+        bytes memory n = bytes(needle);
+        if (n.length == 0 || n.length > h.length) return false;
+        for (uint256 i = 0; i <= h.length - n.length; i++) {
+            bool match_ = true;
+            for (uint256 j = 0; j < n.length; j++) {
+                if (h[i + j] != n[j]) {
+                    match_ = false;
+                    break;
+                }
+            }
+            if (match_) return true;
+        }
+        return false;
     }
 
     function test_liveCoreAddressesPassEscrowGuards() public {
