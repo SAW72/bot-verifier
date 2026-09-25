@@ -25,10 +25,10 @@ Base Sepolia (**84532**) only. Mainnet always reverts. Agents do not `--broadcas
 - [ ] `forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts`
 - [ ] `forge build && forge test`
 - [ ] **(1) Core** — `script/Deploy.s.sol`. Env: `PRIVATE_KEY`, `CORE_TIMELOCK` (required, ≠ deployer). Inside the script: Denylist → Vault(denylist) → Liability(`address(0)`) → InsuranceFund(liability) → `bindInsurance` → DisputePanel. Then `transferOwnership(CORE_TIMELOCK)` on Denylist and Vault (OZ **Ownable2Step** — ownership does not move until the timelock calls `acceptOwnership`) and `setOwner(CORE_TIMELOCK)` on InsuranceFund, Liability, and DisputePanel (immediate).
-- [ ] **Panel seat** — `CORE_TIMELOCK` calls `DisputePanel.setArbitrator` three times. `openDispute` reverts `panel not seated` until `arbitratorCount >= 3`.
-- [ ] **(2) Escrow** — `script/DeployBotAttestationEscrow.s.sol`. Env: `DENYLIST`, `VAULT`, `DISPUTE_PANEL`, `CORE_TIMELOCK` (all required, non-zero; timelock ≠ deployer). Script `transferOwnership(CORE_TIMELOCK)`; timelock must `acceptOwnership`.
+- [x] **Panel seat (Gate B)** — seated on the live DisputePanel. `arbitratorCount` is 3: `0xD5ee9fA366C3698b34204722c635989E5197B018`, `0xF4253A3a3C102Ee59e38b2AA92989C3232eDcC30`, `0xB87Ed5F74276AC6172ef53fE866675093F75936E`. Seat txs are in block 47299643. `openDispute` reverts `panel not seated` if the count later drops below 3. Agents do not `--broadcast`. See `script/DEPLOY_ESCROW_BASE_SEPOLIA.md`.
+- [x] **(2) Escrow** — live `BotAttestationEscrow` `0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c` (deploy tx `0x700d9bac95e8833bd7e93721a88d689a0fb839c9e6108858c52560eae111948e`, block 47299930). Linked DisputePanel `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb`. `acceptOwnership` is complete (`0xd2e982568811c3706eec074d296ef7fa4c54838de714e1a5bfc8afc9fbb73983`, block 47300275). `owner` is `CORE_TIMELOCK` and `pendingOwner` is zero. Agents do not `--broadcast`.
 - [ ] **(3) Optional BVT** — `script/DeployBVT.s.sol`. Env: `BVT_GUARDIAN` (required, non-zero, ≠ deployer). Optional `BVT_INSURANCE_SINK`, `BVT_TREASURY`.
-- [ ] Record addresses and deploy txs in `deployments/base-sepolia.json` and `contracts/README.md` (core addresses are filled; escrow and BVT are still null)
+- [x] Record addresses and deploy txs in `deployments/base-sepolia.json` and `contracts/README.md` (core and escrow are filled; BVT is still null)
 - [ ] Point the stamp API at those addresses
 - [ ] Bootstrap operators via `BVTStaking.bootstrapOperator` — not a public sale
 
