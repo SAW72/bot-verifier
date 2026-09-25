@@ -10,6 +10,7 @@ const destDir = join(here, "..", "src", "abi")
 const files = [
   ["Denylist.sol/Denylist.json", "Denylist.json"],
   ["Vault.sol/Vault.json", "Vault.json"],
+  ["IVault.sol/IVault.json", "IVault.json"],
   ["DisputePanel.sol/DisputePanel.json", "DisputePanel.json"],
   ["Liability.sol/Liability.json", "Liability.json"],
   ["InsuranceFund.sol/InsuranceFund.json", "InsuranceFund.json"],

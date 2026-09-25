@@ -39,4 +39,4 @@ Contract slots, in deploy order:
 
 Spencer fills this file. Agents do not `--broadcast`.
 
-The read-only wallet UI pins the live addresses in [`apps/wallet-ux/src/addresses.ts`](../apps/wallet-ux/src/addresses.ts). That module reads the current Denylist and Vault, not the `superseded` pair.
+The read-only wallet UI loads live slots from this file (`apps/wallet-ux`). `superseded` is not a read target. If this book fails validation, the UI falls back to the corrected Gate A pin in `apps/wallet-ux/src/book.ts`.

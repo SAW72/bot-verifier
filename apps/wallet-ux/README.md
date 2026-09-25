@@ -35,15 +35,19 @@ Reads use the public endpoint `https://sepolia.base.org` unless you set `VITE_BA
 
 1. Connect MetaMask and switch the wallet to Base Sepolia.
 2. Denylist and Vault: `owner()` is CORE_TIMELOCK `0x10CC9474b45625ADfd05C209f2518023484878D9`, `pendingOwner()` is none, and Vault `denylist()` is the pinned Denylist `0xeE76876bECcFc1B58fC06fF4E654a517d784B224`.
-3. DisputePanel: `arbitratorCount` is below `PANEL_SIZE`, with the **panel not seated** state. `openDispute` will revert until three arbitrators are seated.
+3. DisputePanel: `arbitratorCount` is below `PANEL_SIZE`, with **panel not seated / Gate B not seated**. `openDispute` will revert until three arbitrators are seated.
 4. BotAttestationEscrow and the BVT stack show **not deployed on Sepolia yet**.
 5. On any other wallet network the banner blocks the page and contract reads stay off. Switch back to Base Sepolia to read again.
 
 With no wallet connected, the same contract rows still load from the pinned Base Sepolia RPC. Connecting on the wrong chain pauses those reads so they are not shown next to another network.
 
-## Address pin
+## Address book
 
-Live addresses are in `src/addresses.ts`. They match the Gate A book:
+Live slots are read from [`deployments/base-sepolia.json`](../../deployments/base-sepolia.json) when the app loads. `src/book.ts` keeps the corrected Gate A pin and uses it only if that file is missing, is not chain id 84532, or points a live slot at `superseded`. Superseded addresses are never read.
+
+Ops notes for the live pair: [`script/OPS_LIVE_DENYLIST_VAULT.md`](../../script/OPS_LIVE_DENYLIST_VAULT.md). Vault reads use the wallet ABI hook in `contracts/interfaces/IVault.sol` (`src/abi/IVault.json`).
+
+The current book matches:
 
 | Contract | Address |
 | --- | --- |

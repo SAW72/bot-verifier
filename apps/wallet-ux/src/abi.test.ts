@@ -6,6 +6,7 @@ import denylistAbi from "./abi/Denylist.json"
 import disputePanelAbi from "./abi/DisputePanel.json"
 import insuranceFundAbi from "./abi/InsuranceFund.json"
 import liabilityAbi from "./abi/Liability.json"
+import vaultHookAbi from "./abi/IVault.json"
 import vaultAbi from "./abi/Vault.json"
 
 type AbiItem = { type?: string; name?: string; stateMutability?: string }
@@ -21,6 +22,7 @@ describe("forge ABIs", () => {
     }
     for (const name of ["owner", "pendingOwner", "denylist"]) {
       expect(names(vaultAbi).has(name)).toBe(true)
+      expect(names(vaultHookAbi).has(name)).toBe(true)
     }
     for (const name of ["owner", "arbitratorCount", "PANEL_SIZE"]) {
       expect(names(disputePanelAbi).has(name)).toBe(true)

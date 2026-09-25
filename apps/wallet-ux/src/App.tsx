@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi"
-import { ADDRESSES, BASE_SEPOLIA_CHAIN_ID, NOT_DEPLOYED } from "./addresses"
+import { ADDRESSES, addressBook, BASE_SEPOLIA_CHAIN_ID } from "./addresses"
 import { DenylistLookup } from "./DenylistLookup"
 import { errorText, formatEth, shortAddress } from "./format"
 import { gateAOwnershipNotes, liabilityLinkNotes } from "./gate"
@@ -10,6 +10,32 @@ import { createSepoliaClient, panelNotSeated, readGateStatus, rpcHost, type Gate
 import { useConnectorChainId } from "./useWalletChain"
 import { AddressRow, NoteList, TextRow } from "./ui"
 import { rpcUrl } from "./wagmi"
+
+function BvtSlots() {
+  const slots = [
+    ["BVT", ADDRESSES.bvt],
+    ["BVTStaking", ADDRESSES.bvtStaking],
+    ["BVTFeeRouter", ADDRESSES.bvtFeeRouter],
+    ["BVTTimelock", ADDRESSES.bvtTimelock],
+    ["BVTGovernor", ADDRESSES.bvtGovernor],
+  ] as const
+  const undeployed = slots.every(([, address]) => address == null)
+  return (
+    <>
+      {undeployed ? (
+        <div className="empty" data-testid="bvt-empty" role="status">
+          <strong>Not deployed on Sepolia yet.</strong>
+          <p>BVT, BVTStaking, BVTFeeRouter, BVTTimelock, and BVTGovernor are null.</p>
+        </div>
+      ) : null}
+      <ul className="plain">
+        {slots.map(([name, address]) => (
+          <li key={name}>{address == null ? `${name}: not deployed` : `${name}: ${address}`}</li>
+        ))}
+      </ul>
+    </>
+  )
+}
 
 function walletStatus(connected: boolean, chainId: number | null | "conflict"): string {
   if (!connected) return "Disconnected"
@@ -59,7 +85,7 @@ function LiveStatus({ status }: { status: GateStatus }) {
         <h2 id="panel-heading">DisputePanel</h2>
         {unseated ? (
           <div className="callout" data-testid="panel-empty" role="status">
-            <strong>Panel not seated.</strong>
+            <strong>Panel not seated. Gate B is not seated.</strong>
             <p>
               arbitratorCount is {status.disputePanel.arbitratorCount.toString()} and PANEL_SIZE is{" "}
               {status.disputePanel.panelSize.toString()}. openDispute will revert until the panel is seated.
@@ -77,8 +103,8 @@ function LiveStatus({ status }: { status: GateStatus }) {
       <section className="card" aria-labelledby="liability-heading">
         <h2 id="liability-heading">Liability and InsuranceFund</h2>
         <p className="muted">
-          Optional read-only rows. These addresses are the unchanged core deploy in deployments/base-sepolia.json.
-          Recorded balance is InsuranceFund.balance(). Native ETH is the address balance.
+          Read-only owner, insurance link, and balance. Recorded balance is InsuranceFund.balance(). Native ETH is
+          the address balance. No claim signing.
         </p>
         {linkNotes.length === 0 ? (
           <p className="pill ok">Owners match CORE_TIMELOCK and the liability link is mutual.</p>
@@ -233,7 +259,12 @@ export function App() {
       ) : null}
 
       <section className="card" aria-labelledby="timelock-heading">
-        <h2 id="timelock-heading">Pinned CORE_TIMELOCK</h2>
+        <h2 id="timelock-heading">CORE_TIMELOCK</h2>
+        <p className="muted" data-testid="address-source">
+          {addressBook.source === "deployments/base-sepolia.json"
+            ? "Addresses from deployments/base-sepolia.json. Superseded contracts are not read."
+            : "Deployment book failed validation. Using the corrected Gate A pin."}
+        </p>
         <AddressRow label="coreTimelock" value={ADDRESSES.coreTimelock} />
       </section>
 
@@ -253,23 +284,19 @@ export function App() {
 
       <section className="card" aria-labelledby="escrow-heading">
         <h2 id="escrow-heading">BotAttestationEscrow</h2>
-        <div className="empty" data-testid="escrow-empty" role="status">
-          <strong>Not deployed on Sepolia yet.</strong>
-          <p>The escrow address is null. There is no contract to read.</p>
-        </div>
+        {ADDRESSES.botAttestationEscrow == null ? (
+          <div className="empty" data-testid="escrow-empty" role="status">
+            <strong>Not deployed on Sepolia yet.</strong>
+            <p>The escrow address is null. There is no contract to read.</p>
+          </div>
+        ) : (
+          <AddressRow label="Contract" value={ADDRESSES.botAttestationEscrow} />
+        )}
       </section>
 
       <section className="card" aria-labelledby="bvt-heading">
         <h2 id="bvt-heading">BVT stack</h2>
-        <div className="empty" data-testid="bvt-empty" role="status">
-          <strong>Not deployed on Sepolia yet.</strong>
-          <p>BVT, BVTStaking, BVTFeeRouter, BVTTimelock, and BVTGovernor are null.</p>
-        </div>
-        <ul className="plain">
-          {NOT_DEPLOYED.filter(([name]) => name !== "BotAttestationEscrow").map(([name]) => (
-            <li key={name}>{name}: not deployed</li>
-          ))}
-        </ul>
+        <BvtSlots />
       </section>
 
       <DenylistLookup client={client} enabled={guard.ok} blockedReason={blockedReason} />
