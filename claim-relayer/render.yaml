@@ -1,0 +1,44 @@
+# Reference Blueprint only. This file is not at the repo root, so a merge does not
+# register a Render Blueprint. To apply it later, move it to the repo root and set
+# rootDir: claim-relayer.
+#
+# Single web instance: the nonce store is in-memory and is not shared across processes.
+# Do not autoscale. The filesystem is ephemeral. Never put RELAYER_PRIVATE_KEY in git.
+# LIVE_SUBMIT stays 0. Escrow is booked, but Spencer run auth is still required
+# and this build never broadcasts. Unset ESCROW_ADDRESS loads deployments/base-sepolia.json.
+# This service does not broadcast contracts.
+
+services:
+  - type: web
+    name: bot-verifier-claim-relayer
+    runtime: node
+    plan: free
+    numInstances: 1
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_VERSION
+        value: "22"
+      - key: CHAIN_ID
+        value: "84532"
+      - key: LIVE_SUBMIT
+        value: "0"
+      - key: SPENCER_RUN_AUTH
+        value: "0"
+      - key: KILL_SWITCH
+        value: "0"
+      - key: RELAYER_ADDRESS
+        value: "0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861"
+      - key: CLAIM_LOG_PATH
+        value: /tmp/claim-relayer/claims.jsonl
+      - key: BASE_SEPOLIA_RPC_URL
+        sync: false
+      - key: RELAYER_PRIVATE_KEY
+        sync: false
+      - key: ESCROW_ADDRESS
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
