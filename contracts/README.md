@@ -128,9 +128,9 @@ Core stack is live. Canonical copy: [`deployments/base-sepolia.json`](../deploym
 
 PR #11 `DeployDenylist` redeployed **Denylist and Vault only**. Liability, InsuranceFund, and DisputePanel are unchanged. Escrow and BVT are not deployed. The new Vault `denylist()` is the new Denylist.
 
-**Gate A is still pending on the new pair.** `acceptOwnership` has not been called on the new Denylist or the new Vault. On both, `owner` is still the deploy sender `0x5D467FA00eC0E92044f779e495a17db66c5964aa` and `pendingOwner` is `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`). The timelock key is required to accept. Do not treat Gate A as done for these contracts.
+**Gate A is done on the new pair.** `acceptOwnership` is complete on both the new Denylist and the new Vault. On both, `owner` is `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`) and `pendingOwner` is the zero address.
 
-`transferOwnership(CORE_TIMELOCK)` is already mined and is not an accept: Denylist `0xb9767bc6c2b54ff4ae805c09b401c0c5ffb0079be0a54b7925eb9dd41758443c` (block 47294165), Vault `0xd2b0aef1af321729e7361305a591ed7d8aacb2d84724968f979598e8be2d4076` (block 47294166).
+`acceptOwnership` txs (status success): Denylist `0xc8ad34d956d802b3d0d8d032178c9b6786ead6afec1bd502158f1f603b3e3949` (block 47294619), Vault `0xb2aa7515c4c9bac0bbe3403bbd0bb6b8afa72452a4d4ed9ad626fc26944df9b0` (block 47294624). The earlier `transferOwnership(CORE_TIMELOCK)` txs were Denylist `0xb9767bc6c2b54ff4ae805c09b401c0c5ffb0079be0a54b7925eb9dd41758443c` (block 47294165) and Vault `0xd2b0aef1af321729e7361305a591ed7d8aacb2d84724968f979598e8be2d4076` (block 47294166).
 
 Listing migration replay of `Listed` / `Unlisted` from the previous Denylist was empty: **0 Exact / 0 Signature / 0 Prompt**.
 
