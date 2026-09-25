@@ -5,6 +5,7 @@ Working Solidity for the on-chain layers. **Testnet only.** Mainnet is refused b
 ## Files
 - `Denylist.sol` — fingerprint denylist. Exact, signature, and prompt matches are hard blocks (`ExactBlock`, `SignatureBlock`, `PromptBlock`). The owner can clear an active row; `timesListed` / `everListed` and the `Listed` / `Unlisted` events stay.
 - `Vault.sol` — trusted-bot registry with capability tiers and irreversible burn. Constructor: `Vault(denylist)`.
+- `interfaces/IVault.sol` — wallet and relayer ABI for the live Vault (register overloads, operator, burn, grant, reads). It does not change Vault bytecode.
 - `InsuranceFund.sol` — fee-funded backstop. Constructor: `InsuranceFund(liability)` (immutable `onlyLiability` on `payout`).
 - `Liability.sol` — owner → auditor → insurance waterfall. Constructor: `Liability(insuranceFund)` or `Liability(address(0))` then `bindInsurance`.
 - `DisputePanel.sol` — 3-arbitrator **allowlist**. Only `setArbitrator` appointees may vote. `openDispute` reverts until three arbitrators are seated.
@@ -153,6 +154,10 @@ The previous pair still has code. This redeploy did not delete it. The old Vault
 | --- | --- | --- | --- |
 | Denylist | `0xF0f260967D377E07Bdd7840862508ddB23C012b8` | `0x739331697a228684f18a69c54d312baa7557dfcb92c7875c48fa7b2e4c84a429` | Deprecated. Superseded by `0xeE76876bECcFc1B58fC06fF4E654a517d784B224`. Owner remains `CORE_TIMELOCK`; `pendingOwner` is zero. Untouched by the redeploy. |
 | Vault | `0xa1a067D2F58Ae54d4bb5Ec06d893B29E23A45CB7` | `0xe2524dd91b6485f1e484409610659cf3c3819ee7c0e7b5044cda5651f26a447b` | Deprecated. Superseded by `0x1463D664fA467FBCDA4B05443434494f05e565bc`. Still points at the old Denylist. |
+
+## Live Denylist and Vault ops
+
+The live pair has no listings and no Vault bots. Operator scripts call the existing addresses. They do not redeploy Denylist or Vault. Simulate commands, cast recipes, and failure modes: [`script/OPS_LIVE_DENYLIST_VAULT.md`](../script/OPS_LIVE_DENYLIST_VAULT.md).
 
 ## BVT stack (additive)
 
