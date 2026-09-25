@@ -31,3 +31,5 @@ Contract slots, in deploy order:
 `DisputePanel` ownership moves immediately via `setOwner`. `openDispute` reverts with `panel not seated` until that owner has called `setArbitrator` for three addresses (`arbitratorCount >= 3`).
 
 Spencer fills this file. Agents do not `--broadcast`.
+
+A tip-bytecode Denylist + Vault redeploy is `script/DeployDenylist.s.sol` (see [`script/DEPLOY_DENYLIST.md`](../script/DEPLOY_DENYLIST.md)). That script does not edit `base-sepolia.json`. After Spencer broadcasts, replace `Denylist` and `Vault` `address` and `deployTx` with the real values from that broadcast. Until then the live addresses in the JSON stay. After cutover, Denylist `0xF0f260967D377E07Bdd7840862508ddB23C012b8` and Vault `0xa1a067D2F58Ae54d4bb5Ec06d893B29E23A45CB7` are superseded. Liability, InsuranceFund, and DisputePanel are not part of that redeploy.
