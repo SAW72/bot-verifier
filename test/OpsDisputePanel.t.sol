@@ -33,8 +33,23 @@ contract OpsDisputePanelGuardTest is Test {
         assertEq(book.readAddress(".Vault.address"), addOp.LIVE_VAULT());
         assertEq(book.readUint(".chainId"), addOp.ALLOWED_CHAIN_ID());
         assertEq(seatOp.LIVE_DISPUTE_PANEL(), livePanel);
-        assertEq(book.readString(".BotAttestationEscrow.deployTx"), "");
-        assertTrue(_contains(book, '"BotAttestationEscrow": {\n    "address": null,\n    "deployTx": ""'));
+        assertEq(
+            book.readAddress(".BotAttestationEscrow.address"),
+            0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c
+        );
+        assertEq(
+            book.readString(".BotAttestationEscrow.deployTx"),
+            "0x700d9bac95e8833bd7e93721a88d689a0fb839c9e6108858c52560eae111948e"
+        );
+        assertEq(book.readString(".BotAttestationEscrow.acceptOwnership"), "complete");
+        assertEq(book.readAddress(".BotAttestationEscrow.owner"), liveTimelock);
+        assertEq(book.readAddress(".BotAttestationEscrow.pendingOwner"), address(0));
+        assertEq(
+            book.readString(".BotAttestationEscrow.acceptOwnershipTx"),
+            "0xd2e982568811c3706eec074d296ef7fa4c54838de714e1a5bfc8afc9fbb73983"
+        );
+        assertEq(book.readUint(".BotAttestationEscrow.acceptOwnershipBlock"), 47300275);
+        assertTrue(_contains(book, '"BVT": {\n    "address": null,\n    "deployTx": ""'));
     }
 
     function _contains(

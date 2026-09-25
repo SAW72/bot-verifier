@@ -13,7 +13,7 @@ Working Solidity for the on-chain layers. **Testnet only.** Mainnet is refused b
 
 ## Deploy order (dependency-correct)
 
-Three scripts, in this order. Agents simulate only. Spencer broadcasts. Record each address in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json). Core addresses are already filled. Escrow and BVT stay null until those deploys.
+Three scripts, in this order. Agents simulate only. Spencer broadcasts. Record each address in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json). Core addresses and `BotAttestationEscrow` are filled. BVT stays null until that deploy.
 
 ### (1) Core — `script/Deploy.s.sol`
 
@@ -30,7 +30,7 @@ Liability is created first (with `address(0)` insurance) so `InsuranceFund` can 
 7. `transferOwnership(CORE_TIMELOCK)` on Denylist and Vault (OZ **Ownable2Step** — deployer stays owner until the timelock calls `acceptOwnership`)
 8. `setOwner(CORE_TIMELOCK)` on InsuranceFund, Liability, DisputePanel (immediate; not two-step)
 
-**Post-step (panel seat, Gate B).** `DisputePanel.openDispute` reverts `panel not seated` until `arbitratorCount >= 3`. After `setOwner`, only `CORE_TIMELOCK` can call `setArbitrator` — appoint three distinct arbitrators before any dispute is opened. The core deploy script does not appoint them. On the live panel, seat them with `script/OpsDisputePanel.s.sol` (`OpsDisputePanelSeat`). Prefer that seat before the escrow broadcast. Commands: [`script/DEPLOY_ESCROW_BASE_SEPOLIA.md`](../script/DEPLOY_ESCROW_BASE_SEPOLIA.md).
+**Post-step (panel seat, Gate B).** `DisputePanel.openDispute` reverts `panel not seated` until `arbitratorCount >= 3`. After `setOwner`, only `CORE_TIMELOCK` can call `setArbitrator`. The core deploy script does not appoint them. On the live panel Gate B is seated (`arbitratorCount` is 3). Seat txs and the three arbitrators: [`script/DEPLOY_ESCROW_BASE_SEPOLIA.md`](../script/DEPLOY_ESCROW_BASE_SEPOLIA.md).
 
 ### (2) Escrow — `script/DeployBotAttestationEscrow.s.sol`
 
@@ -124,13 +124,13 @@ forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow 
   --broadcast
 ```
 
-Then `CORE_TIMELOCK` calls `acceptOwnership()` on `BotAttestationEscrow`. Do not call `createEscrow` before that accept. After accept, denylist changes go through timelock-owned `setDenylist` and revert while `lockedValue != 0`.
+On the live escrow, `CORE_TIMELOCK` has called `acceptOwnership()`. `owner` is `CORE_TIMELOCK` and `pendingOwner` is the zero address. Denylist changes go through timelock-owned `setDenylist` and revert while `lockedValue != 0`. Agents do not `--broadcast` and do not call `createEscrow` from this repo session.
 
 ## Base Sepolia addresses (84532)
 
 Core stack is live. Canonical copy: [`deployments/base-sepolia.json`](../deployments/base-sepolia.json).
 
-PR #11 `DeployDenylist` redeployed **Denylist and Vault only**. Liability, InsuranceFund, and DisputePanel are unchanged. Escrow and BVT are not deployed. The new Vault `denylist()` is the new Denylist.
+PR #11 `DeployDenylist` redeployed **Denylist and Vault only**. Liability, InsuranceFund, and DisputePanel addresses are unchanged. `BotAttestationEscrow` is live and linked to that DisputePanel. BVT is not deployed. The new Vault `denylist()` is the new Denylist.
 
 **Gate A is done on the new pair.** `acceptOwnership` is complete on both the new Denylist and the new Vault. On both, `owner` is `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`) and `pendingOwner` is the zero address.
 
@@ -145,11 +145,21 @@ Listing migration replay of `Listed` / `Unlisted` from the previous Denylist was
 | InsuranceFund | `0x19fc26B36Cb2031062eD90C19db64b3b09753ab8` | `0xa71db2c304d8e80e4043e4d093a0c102ec619624ab0500d0bc7246dc27d3edd7` |
 | Liability | `0x554Caf5a214B8d70D675C09186C5EAE24FEB7307` | `0x99865db9b9f4a6807b085cec8c50d22160025c4df09afc609fb52b9758fe6261` |
 | DisputePanel | `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb` | `0x9ecd10d67054fbf9e63ad25dd1520ed809fbf94c4ab1f19ad84e81899562b77f` |
-| BotAttestationEscrow | _pending Spencer deploy_ | |
+| BotAttestationEscrow | `0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c` | `0x700d9bac95e8833bd7e93721a88d689a0fb839c9e6108858c52560eae111948e` |
 
-`DisputePanel.owner()` is `CORE_TIMELOCK`. Gate B is not seated (`arbitratorCount` was 0 on 2026-09-25). `BotAttestationEscrow` stays pending until Spencer broadcasts and the real address is pasted here. Do not invent one.
+`DisputePanel.owner()` is `CORE_TIMELOCK`. Gate B is seated: `arbitratorCount` is 3.
 
-Create txs: Denylist block 47294163, Vault block 47294164. The Tx column is the create transaction.
+| # | Arbitrator | Seat tx (block 47299643) |
+| --- | --- | --- |
+| 1 | `0xD5ee9fA366C3698b34204722c635989E5197B018` | `0xa97b518ad87489ab1d45ec4bef5e548c1d4bf3b9c940552e8cba1752fed7553c` |
+| 2 | `0xF4253A3a3C102Ee59e38b2AA92989C3232eDcC30` | `0xf1ad4d9221b2393863d9bc6a72c1a716cf389532d2cfa63fd4df682303ed6df6` |
+| 3 | `0xB87Ed5F74276AC6172ef53fE866675093F75936E` | `0xa1f8f0fb6ad78dd2d9fd9d33dabf9cde5b73195a1b292869e7d96cc985cb79a3` |
+
+`BotAttestationEscrow` is live and linked to DisputePanel `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb`. `acceptOwnership` is complete. `owner` is `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`) and `pendingOwner` is the zero address.
+
+`acceptOwnership` tx (status success): `0xd2e982568811c3706eec074d296ef7fa4c54838de714e1a5bfc8afc9fbb73983` (block 47300275). The `transferOwnership(CORE_TIMELOCK)` tx was `0x00aaef315f23de346bfe63e77e0f04d3fbcadc370b0db21bb7abb8f8e12c40f2` (block 47299930), the same block as the create tx.
+
+Create txs: Denylist block 47294163, Vault block 47294164, BotAttestationEscrow block 47299930. The Tx column is the create transaction.
 
 ### Superseded (deprecated, left on chain)
 

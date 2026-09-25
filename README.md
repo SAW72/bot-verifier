@@ -81,8 +81,8 @@ export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 # CORE_TIMELOCK = timelock/multisig that will own Denylist/Vault/Liability (≠ deployer)
 # (1) forge script script/Deploy.s.sol:Deploy --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
 #     then CORE_TIMELOCK acceptOwnership() on Denylist and Vault, and setArbitrator x3
-# Escrow simulate (no --broadcast) and Gate B seating: script/DEPLOY_ESCROW_BASE_SEPOLIA.md
-# SIMULATE is not live. Agents do not --broadcast. Do not invent an escrow address.
+# Escrow is live and Gate B is seated. Record: script/DEPLOY_ESCROW_BASE_SEPOLIA.md
+# SIMULATE is not live. Agents do not --broadcast. Do not replace the live escrow address.
 # (2) escrow — env DENYLIST, VAULT, DISPUTE_PANEL, CORE_TIMELOCK (timelock must acceptOwnership):
 # forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
 # (3) optional BVT stack (hardened roles; sinks default to timelock). BVT_GUARDIAN required (≠ deployer):
@@ -92,6 +92,6 @@ export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 Core `Deploy.s.sol`, `DeployBotAttestationEscrow.s.sol`, and additive `DeployBVT.s.sol` all revert on Ethereum mainnet (`chainid == 1`) and on any chain other than Base Sepolia. ETH Sepolia (`11155111`) is a documented one-line switch. Paste addresses into `deployments/base-sepolia.json` and `contracts/README.md` after deploy.
 
 ## Status
-Architecture complete. Core runner (stub + live Grok client), denylist, vault, liability, insurance, dispute, meta-audit, key management, Base Sepolia Foundry deploy, and the BVT staking/fee/governance stack are real code. Remaining: Spencer broadcasts the testnet deploys, and run the first live attested audit.
+Architecture complete. Core runner (stub + live Grok client), denylist, vault, liability, insurance, dispute, meta-audit, key management, Base Sepolia Foundry deploy, and the BVT staking/fee/governance stack are real code. Core, Gate B, and BotAttestationEscrow are on Base Sepolia. BVT is not deployed. Agents do not `--broadcast`. Remaining: the first live attested audit.
 
 Built by Spencer (SAW72) — trades mindset, crypto-native, early on purpose.
