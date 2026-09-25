@@ -92,6 +92,18 @@ export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 
 Core `Deploy.s.sol`, `DeployBotAttestationEscrow.s.sol`, and additive `DeployBVT.s.sol` all revert on Ethereum mainnet (`chainid == 1`) and on any chain other than Base Sepolia. ETH Sepolia (`11155111`) is a documented one-line switch. Paste addresses into `deployments/base-sepolia.json` and `contracts/README.md` after deploy.
 
+### Wallet UI (read-only, Base Sepolia)
+
+`apps/wallet-ux` connects an injected wallet and reads Gate A. It refuses every chain except Base Sepolia (84532), including Ethereum mainnet and Base mainnet. It does not send transactions.
+
+```bash
+cd apps/wallet-ux
+npm install
+npm run dev
+```
+
+See [`apps/wallet-ux/README.md`](apps/wallet-ux/README.md).
+
 ## Status
 Architecture complete. Core runner (stub + live Grok client), denylist, vault, liability, insurance, dispute, meta-audit, key management, Base Sepolia Foundry deploy, and the BVT staking/fee/governance stack are real code. Core, Gate B, and BotAttestationEscrow are on Base Sepolia. BVT is not deployed. Agents do not `--broadcast`. Remaining: the first live attested audit.
 
