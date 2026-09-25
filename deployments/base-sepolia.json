@@ -3,7 +3,7 @@
   "chainId": 84532,
   "network": "base-sepolia",
   "status": "live",
-  "notes": "Core stack is live on Base Sepolia. Denylist and Vault Ownable2Step acceptOwnership is still pending from CORE_TIMELOCK. Escrow and BVT were not deployed this pass. Never put secrets here.",
+  "notes": "Gate A: Denylist owner is coreTimelock (acceptOwnership complete, pendingOwner zero). Vault Ownable2Step transfer is started but not accepted — owner is still the deploy sender 0x5D467FA00eC0E92044f779e495a17db66c5964aa and pendingOwner is coreTimelock. BotAttestationEscrow and the BVT stack are not deployed (address null). Never put secrets here.",
   "coreTimelock": "0x10CC9474b45625ADfd05C209f2518023484878D9",
   "bvtGuardian": null,
   "Denylist": {

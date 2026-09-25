@@ -1,47 +1,77 @@
 // SPDX-License-Identifier: MIT
 // Bot-to-bot attestation escrow.
 // Holds funds until both counterparties present valid, non-expired, non-denylisted stamps.
-// Not audited. For illustration and local testing.
+// Unaudited. Production-bound Base Sepolia design. Not deployed. Not an illustration.
 pragma solidity ^0.8.20;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
-interface IDenylist {
-    enum MatchLevel { None, PromptReview, SignatureBlock, ExactBlock }
-    function check(bytes32, bytes32, bytes32) external view returns (MatchLevel);
-}
+import { IDenylist } from "./Denylist.sol";
 
 interface IVault {
-    enum Tier { None, Chat, DataTools, Financial, Critical }
-    function grantAccess(bytes32 botId, uint8 requestedPerms) external view returns (bool);
-    function operator(bytes32 botId) external view returns (address);
-    function bots(bytes32) external view returns (
-        bytes32 weightHash,
-        bytes32 behaviorSig,
-        bytes32 promptHash,
-        Tier tier,
-        bool active,
-        uint256 registeredAt
-    );
+    enum Tier {
+        None,
+        Chat,
+        DataTools,
+        Financial,
+        Critical
+    }
+    function grantAccess(
+        bytes32 botId,
+        uint8 requestedPerms
+    ) external view returns (bool);
+    function operator(
+        bytes32 botId
+    ) external view returns (address);
+    function bots(
+        bytes32
+    )
+        external
+        view
+        returns (
+            bytes32 weightHash,
+            bytes32 behaviorSig,
+            bytes32 promptHash,
+            Tier tier,
+            bool active,
+            uint256 registeredAt
+        );
 }
 
 interface IDisputePanel {
-    function outcome(bytes32 disputeId)
-        external
-        view
-        returns (bool exists, bool resolved, bool upheld, bytes32 subjectHash);
+    function outcome(
+        bytes32 disputeId
+    ) external view returns (bool exists, bool resolved, bool upheld, bytes32 subjectHash);
 }
 
 /// @title BotAttestationEscrow
 /// @notice Escrows value for a bot-to-bot transaction until both sides verify each other.
+/// @dev Denylist policy: `governance` is immutable and is CORE_TIMELOCK in production.
+///      The deployer cannot be `governance`. `createEscrow` and dependency swaps
+///      (`setDenylist`, `setVault`, `setDisputePanel`) run only while `owner() == governance`,
+///      which means the timelock has accepted Ownable2Step ownership. Swaps also revert
+///      while `lockedValue != 0`, so an owner cannot point `_verifyBot` at an empty
+///      registry under open funds. Swaps emit governance events. There is no hot EOA admin.
 contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
+    /// @notice Timelock that must own this contract before funding or dependency swaps.
+    /// @dev Production value is CORE_TIMELOCK. A later owner who is not this address
+    ///      cannot retarget the denylist; they can transfer ownership back.
+    address public immutable governance;
+
+    /// @notice ETH still held for Open or Disputed escrows. Not the raw contract balance.
+    uint256 public lockedValue;
+
     IDenylist public denylist;
     IVault public vault;
     IDisputePanel public disputePanel;
 
-    enum EscrowState { Open, Released, Refunded, Disputed }
+    enum EscrowState {
+        Open,
+        Released,
+        Refunded,
+        Disputed
+    }
 
     struct Escrow {
         address payer;
@@ -70,7 +100,10 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     event EscrowReleased(bytes32 indexed escrowId, uint256 amount);
     event EscrowRefunded(bytes32 indexed escrowId, uint256 amount);
     event EscrowDisputed(bytes32 indexed escrowId, bytes32 disputeId);
-    event DenylistUpdated(address indexed denylist);
+    /// @notice Governance record of a denylist swap. `actor` is `governance` after it has accepted ownership.
+    event DenylistUpdated(
+        address indexed previousDenylist, address indexed newDenylist, address indexed actor, uint256 timestamp
+    );
     event VaultUpdated(address indexed vault);
     event DisputePanelUpdated(address indexed panel);
 
@@ -82,41 +115,86 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     error InvalidDispute();
     error DisputePending();
     error ZeroAddress();
+    error InvalidGovernance();
+    error NotGovernance();
+    error FundingBeforeGovernance();
+    error DependencyChangeWhileFunded();
+    error DenylistUnchanged();
 
-    constructor(address _denylist, address _vault, address _panel) Ownable(msg.sender) {
+    /// @param _governance CORE_TIMELOCK in production. Must be non-zero and must not be the deployer.
+    constructor(
+        address _denylist,
+        address _vault,
+        address _panel,
+        address _governance
+    ) Ownable(msg.sender) {
+        if (_governance == address(0)) revert ZeroAddress();
+        if (_governance == msg.sender) revert InvalidGovernance();
+        governance = _governance;
         _setDenylist(_denylist);
         _setVault(_vault);
         _setDisputePanel(_panel);
     }
 
-    /// @notice Re-point denylist after deploy (timelock/owner only).
-    function setDenylist(address _denylist) external onlyOwner {
+    /// @notice Point `_verifyBot` at a different denylist.
+    /// @dev Who: `governance`, and only while that address is the Ownable2Step owner.
+    ///      The deployer is owner until `acceptOwnership` and cannot call this.
+    ///      An owner who is not `governance` cannot call this either.
+    ///      When: only while `lockedValue == 0`. A swap under an open escrow would let
+    ///      `release` read a registry that does not list the locked bots.
+    ///      The `DenylistUpdated` event (previous, new, caller, timestamp) is the
+    ///      governance record. Production has no separate hot EOA admin.
+    function setDenylist(
+        address _denylist
+    ) external onlyGovernance whileUnfunded {
         _setDenylist(_denylist);
     }
 
-    /// @notice Re-point vault after deploy (timelock/owner only).
-    function setVault(address _vault) external onlyOwner {
+    /// @notice Re-point the vault. Same authority and funded-lock as `setDenylist`.
+    function setVault(
+        address _vault
+    ) external onlyGovernance whileUnfunded {
         _setVault(_vault);
     }
 
-    /// @notice Re-point dispute panel after deploy (timelock/owner only).
-    function setDisputePanel(address _panel) external onlyOwner {
+    /// @notice Re-point the dispute panel. Same authority and funded-lock as `setDenylist`.
+    function setDisputePanel(
+        address _panel
+    ) external onlyGovernance whileUnfunded {
         _setDisputePanel(_panel);
     }
 
-    function _setDenylist(address _denylist) internal {
+    modifier onlyGovernance() {
+        if (msg.sender != governance || owner() != governance) revert NotGovernance();
+        _;
+    }
+
+    modifier whileUnfunded() {
+        if (lockedValue != 0) revert DependencyChangeWhileFunded();
+        _;
+    }
+
+    function _setDenylist(
+        address _denylist
+    ) internal {
         if (_denylist == address(0)) revert ZeroAddress();
+        address previous = address(denylist);
+        if (previous == _denylist) revert DenylistUnchanged();
         denylist = IDenylist(_denylist);
-        emit DenylistUpdated(_denylist);
+        emit DenylistUpdated(previous, _denylist, msg.sender, block.timestamp);
     }
 
-    function _setVault(address _vault) internal {
+    function _setVault(
+        address _vault
+    ) internal {
         if (_vault == address(0)) revert ZeroAddress();
         vault = IVault(_vault);
         emit VaultUpdated(_vault);
     }
 
-    function _setDisputePanel(address _panel) internal {
+    function _setDisputePanel(
+        address _panel
+    ) internal {
         if (_panel == address(0)) revert ZeroAddress();
         disputePanel = IDisputePanel(_panel);
         emit DisputePanelUpdated(_panel);
@@ -135,6 +213,8 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         bytes32 payeeBotId,
         uint256 durationSeconds
     ) external payable nonReentrant returns (bytes32) {
+        // No funding until CORE_TIMELOCK has accepted. The deployer key must not lock ETH.
+        if (owner() != governance) revert FundingBeforeGovernance();
         if (usedEscrowIds[escrowId]) revert Replay();
         if (payee == address(0) || msg.sender == payee) revert InvalidParties();
         if (payerBotId == bytes32(0) || payeeBotId == bytes32(0) || payerBotId == payeeBotId) {
@@ -152,6 +232,7 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         _verifyBot(payeeBotId, "payee");
 
         usedEscrowIds[escrowId] = true;
+        lockedValue += msg.value;
         uint256 expiresAt = block.timestamp + durationSeconds;
         escrows[escrowId] = Escrow({
             payer: msg.sender,
@@ -179,7 +260,9 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     ///      `refund` is closed, so a later denylist hit, burn, tier drop, or operator
     ///      rotation must not strand the locked ETH. Payment is `e.payee` from create,
     ///      not whatever address currently operates the payee bot.
-    function release(bytes32 escrowId) external nonReentrant {
+    function release(
+        bytes32 escrowId
+    ) external nonReentrant {
         Escrow storage e = escrows[escrowId];
         bool panelUpheld = false;
         if (e.state == EscrowState.Disputed) {
@@ -201,7 +284,8 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         }
 
         e.state = EscrowState.Released;
-        (bool ok, ) = e.payee.call{value: e.amount}("");
+        lockedValue -= e.amount;
+        (bool ok,) = e.payee.call{ value: e.amount }("");
         require(ok, "transfer failed");
         emit EscrowReleased(escrowId, e.amount);
     }
@@ -211,7 +295,9 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     ///      An upheld panel ruling closes refund permanently, including after `expiresAt`.
     ///      Expiry remains the backstop only when the panel has not upheld the deal
     ///      (still pending, or resolved as an unwind).
-    function refund(bytes32 escrowId) external nonReentrant {
+    function refund(
+        bytes32 escrowId
+    ) external nonReentrant {
         Escrow storage e = escrows[escrowId];
         if (e.state == EscrowState.Open) {
             require(block.timestamp > e.expiresAt, "not expired");
@@ -227,51 +313,69 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         }
 
         e.state = EscrowState.Refunded;
-        (bool ok, ) = e.payer.call{value: e.amount}("");
+        lockedValue -= e.amount;
+        (bool ok,) = e.payer.call{ value: e.amount }("");
         require(ok, "refund failed");
         emit EscrowRefunded(escrowId, e.amount);
     }
 
     /// @notice Flag an escrow for dispute. Does not authorize a refund.
     /// @dev `disputeId` must already exist on the DisputePanel with subjectHash == escrowId.
-    function dispute(bytes32 escrowId, bytes32 disputeId) external {
+    function dispute(
+        bytes32 escrowId,
+        bytes32 disputeId
+    ) external {
         Escrow storage e = escrows[escrowId];
         if (e.state != EscrowState.Open) revert EscrowNotOpen();
         require(msg.sender == e.payer || msg.sender == e.payee, "not a party");
         if (disputeId == bytes32(0)) revert InvalidDispute();
-        (bool exists, , , bytes32 subject) = disputePanel.outcome(disputeId);
+        (bool exists,,, bytes32 subject) = disputePanel.outcome(disputeId);
         if (!exists || subject != escrowId) revert InvalidDispute();
         e.state = EscrowState.Disputed;
         e.disputeId = disputeId;
         emit EscrowDisputed(escrowId, disputeId);
     }
 
-    function _requireBoundOperators(Escrow storage e) internal view {
+    function _requireBoundOperators(
+        Escrow storage e
+    ) internal view {
         if (vault.operator(e.payerBotId) != e.payer) revert InvalidParties();
         if (vault.operator(e.payeeBotId) != e.payee) revert InvalidParties();
     }
 
     /// @dev True only when this escrow's panel case exists, matches, is resolved, and is upheld.
-    function _panelUpheld(Escrow storage e, bytes32 escrowId) internal view returns (bool) {
+    function _panelUpheld(
+        Escrow storage e,
+        bytes32 escrowId
+    ) internal view returns (bool) {
         (bool exists, bool resolved, bool upheld, bytes32 subject) = disputePanel.outcome(e.disputeId);
         return exists && subject == escrowId && resolved && upheld;
     }
 
-    function _requirePanelUnwind(Escrow storage e, bytes32 escrowId) internal view {
+    function _requirePanelUnwind(
+        Escrow storage e,
+        bytes32 escrowId
+    ) internal view {
         (bool exists, bool resolved, bool upheld, bytes32 subject) = disputePanel.outcome(e.disputeId);
         if (!exists || subject != escrowId) revert InvalidDispute();
         if (!resolved) revert DisputePending();
         if (upheld) revert DisputePending();
     }
 
-    function _requirePanelUpheld(Escrow storage e, bytes32 escrowId) internal view {
+    function _requirePanelUpheld(
+        Escrow storage e,
+        bytes32 escrowId
+    ) internal view {
         (bool exists, bool resolved, bool upheld, bytes32 subject) = disputePanel.outcome(e.disputeId);
         if (!exists || subject != escrowId) revert InvalidDispute();
         if (!resolved || !upheld) revert DisputePending();
     }
 
-    function _verifyBot(bytes32 botId, string memory role) internal view {
-        (bytes32 weightHash, bytes32 behaviorSig, bytes32 promptHash, IVault.Tier tier, bool active, ) =
+    function _verifyBot(
+        bytes32 botId,
+        string memory role
+    ) internal view {
+        (bytes32 weightHash, bytes32 behaviorSig, bytes32 promptHash, IVault.Tier tier, bool active,) =
             vault.bots(botId);
         if (!active) revert AttestationFailed(string.concat(role, " bot inactive"));
         if (uint8(tier) < uint8(IVault.Tier.Financial)) {
@@ -286,6 +390,7 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         } catch {
             revert AttestationFailed(string.concat(role, " bot access denied"));
         }
+        // PromptBlock, SignatureBlock, and ExactBlock are hard blocks. None is the only pass.
         IDenylist.MatchLevel level = denylist.check(weightHash, behaviorSig, promptHash);
         if (level != IDenylist.MatchLevel.None) {
             revert AttestationFailed(string.concat(role, " bot denylisted"));

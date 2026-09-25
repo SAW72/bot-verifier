@@ -3,7 +3,7 @@
 Working Solidity for the on-chain layers. **Testnet only.** Mainnet is refused by the deploy script.
 
 ## Files
-- `Denylist.sol` — irreversible denylist with graduated matching (exact / signature / prompt).
+- `Denylist.sol` — fingerprint denylist. Exact, signature, and prompt matches are hard blocks (`ExactBlock`, `SignatureBlock`, `PromptBlock`). The owner can clear an active row; `timesListed` / `everListed` and the `Listed` / `Unlisted` events stay.
 - `Vault.sol` — trusted-bot registry with capability tiers and irreversible burn. Constructor: `Vault(denylist)`.
 - `InsuranceFund.sol` — fee-funded backstop. Constructor: `InsuranceFund(liability)` (immutable `onlyLiability` on `payout`).
 - `Liability.sol` — owner → auditor → insurance waterfall. Constructor: `Liability(insuranceFund)` or `Liability(address(0))` then `bindInsurance`.
@@ -12,7 +12,7 @@ Working Solidity for the on-chain layers. **Testnet only.** Mainnet is refused b
 
 ## Deploy order (dependency-correct)
 
-Three scripts, in this order. Agents simulate only. Spencer broadcasts. Record each address in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json) (committed template; addresses start null).
+Three scripts, in this order. Agents simulate only. Spencer broadcasts. Record each address in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json). Core addresses are already filled. Escrow and BVT stay null until those deploys.
 
 ### (1) Core — `script/Deploy.s.sol`
 
@@ -41,7 +41,7 @@ Run only after (1), using the deployed addresses. Env (all required, non-zero):
 - `DISPUTE_PANEL`
 - `CORE_TIMELOCK` (≠ deployer)
 
-The script deploys `BotAttestationEscrow(denylist, vault, panel)` and `transferOwnership(CORE_TIMELOCK)`. **Ownable2Step:** the timelock must `acceptOwnership` or the deployer remains owner. It does not redeploy Denylist, Vault, or DisputePanel.
+The script deploys `BotAttestationEscrow(denylist, vault, panel, CORE_TIMELOCK)` and `transferOwnership(CORE_TIMELOCK)`. **Ownable2Step:** the timelock must `acceptOwnership` or the deployer remains owner. `governance` is that timelock. `createEscrow` reverts until the timelock has accepted. `setDenylist`, `setVault`, and `setDisputePanel` revert unless `owner() == governance`, and they also revert while `lockedValue != 0`. A denylist swap emits `DenylistUpdated` (previous, new, caller, timestamp). That is a governance event. Production has no hot EOA admin for it. Do not fund before `acceptOwnership`. The script does not redeploy Denylist, Vault, or DisputePanel.
 
 ### (3) Optional BVT — `script/DeployBVT.s.sol`
 
@@ -120,11 +120,11 @@ forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow 
   --broadcast
 ```
 
-Then `CORE_TIMELOCK` calls `acceptOwnership()` on `BotAttestationEscrow`.
+Then `CORE_TIMELOCK` calls `acceptOwnership()` on `BotAttestationEscrow`. Do not call `createEscrow` before that accept. After accept, denylist changes go through timelock-owned `setDenylist` and revert while `lockedValue != 0`.
 
 ## Base Sepolia addresses (84532)
 
-Core stack is live. Canonical copy: [`deployments/base-sepolia.json`](../deployments/base-sepolia.json). Denylist and Vault Ownable2Step `acceptOwnership` from `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`) is still pending. Escrow and BVT were not deployed this pass.
+Core stack is live. Canonical copy: [`deployments/base-sepolia.json`](../deployments/base-sepolia.json). Denylist `owner` is `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`); its `pendingOwner` is zero. Vault `acceptOwnership` is still outstanding: `pendingOwner` is that timelock and the deploy sender (`0x5D467FA00eC0E92044f779e495a17db66c5964aa`) is still owner. Escrow and BVT are not deployed.
 
 | Contract | Address | Tx |
 | --- | --- | --- |
@@ -186,7 +186,9 @@ Fill in after Spencer broadcasts `script/DeployBVT.s.sol`.
 | BVTGovernor | _pending_ | |
 
 ## Notes
-- No denylist removal functions exist on purpose.
+- Denylist `remove(id, bucket)` clears active membership only. History stays (`everListed`, `timesListed`, `Listed` / `Unlisted`). `bytes32(0)` is rejected. `check` stays a view and does not emit; reads are not the audit trail.
+- `PromptBlock` is a hard block. Vault `register` and escrow `_verifyBot` fail closed on every `MatchLevel` other than `None`.
+- Escrow `setDenylist` is callable only by immutable `governance` while that address is owner, and only when no ETH is locked. See the escrow section above.
 - These are unaudited. Get a real audit before any mainnet discussion.
 - Pair with `blockchain_bot/example_policy.sol` for the action leash.
 - BVT is not a sale token. Mint only via earn (`BVTFeeRouter`) or operator bootstrap (`BVTStaking.bootstrapOperator`).

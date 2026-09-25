@@ -23,7 +23,7 @@ An experimental stack for testing whether an AI bot is safe, honest, and stable 
 - **Sandbagging detection**: stealth scenarios and meta-probes.
 - **Agentic layer**: tool-use simulation, long-horizon scoring.
 - **On-chain attestation**: TEE-signed reports, portable fingerprints.
-- **Vault + denylist**: trusted-bot registry, irreversible burn, graduated matching.
+- **Vault + denylist**: trusted-bot registry, irreversible burn, hard-block denylist (exact, signature, and prompt) with reversible active listings and permanent history.
 - **Governance**: multisig + timelock for safe rule changes.
 - **Economic security**: auditor staking and slash.
 - **Private scenarios**: encrypted vault with rotation.

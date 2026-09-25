@@ -4,11 +4,11 @@ These are the properties the Denylist and Vault contracts must satisfy.
 Use with a tool like Certora, Slither, or manual review.
 
 ## Denylist.sol
-1. `addExact`, `addSignature`, `addPrompt` are irreversible: once `denylistedX[h] == true`, no function can set it back to false.
-2. `remove` always reverts.
-3. `check` returns the highest MatchLevel present (Exact > Signature > Prompt > None).
-4. No path allows a denylisted hash to pass `check` with `MatchLevel.None`.
-5. Only `owner` can add entries.
+1. `remove(id, bucket)` clears `active` for that bucket only. `timesListed` never decreases, and `everListed` stays true after removal.
+2. `bytes32(0)` cannot be added or removed.
+3. `check` returns the strongest active MatchLevel (`ExactBlock` > `SignatureBlock` > `PromptBlock` > `None`). Ordinals stay 3, 2, 1, 0. `PromptBlock` is a hard block, the same gate as the other non-`None` levels.
+4. An id with `active == false` does not produce a match, even if it was listed before. An id with `active == true` cannot produce `MatchLevel.None` for that bucket.
+5. Only `owner` can add or remove. A second add while `active` reverts and does not bump `timesListed`.
 
 ## Vault.sol
 1. `register` requires `denylist.check(...) == None`.

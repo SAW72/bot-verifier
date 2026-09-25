@@ -2,15 +2,15 @@
 // Tests for BotAttestationEscrow using Foundry (forge test).
 pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol";
-import {BotAttestationEscrow} from "../contracts/BotAttestationEscrow.sol";
-import {Denylist} from "../contracts/Denylist.sol";
-import {Vault} from "../contracts/Vault.sol";
-import {DisputePanel} from "../contracts/DisputePanel.sol";
-import {DeployBotAttestationEscrow} from "../script/DeployBotAttestationEscrow.s.sol";
+import { Test } from "forge-std/Test.sol";
+import { BotAttestationEscrow } from "../contracts/BotAttestationEscrow.sol";
+import { Denylist } from "../contracts/Denylist.sol";
+import { Vault } from "../contracts/Vault.sol";
+import { DisputePanel } from "../contracts/DisputePanel.sol";
+import { DeployBotAttestationEscrow } from "../script/DeployBotAttestationEscrow.s.sol";
 
 contract EtherSink {
-    receive() external payable {}
+    receive() external payable { }
 }
 
 contract ReenteringPayee {
@@ -18,11 +18,15 @@ contract ReenteringPayee {
     bytes32 public escrowId;
     bool public tried;
 
-    constructor(BotAttestationEscrow _escrow) {
+    constructor(
+        BotAttestationEscrow _escrow
+    ) {
         escrow = _escrow;
     }
 
-    function setEscrowId(bytes32 id) external {
+    function setEscrowId(
+        bytes32 id
+    ) external {
         escrowId = id;
     }
 
@@ -30,18 +34,23 @@ contract ReenteringPayee {
         if (!tried) {
             tried = true;
             // Reenter should fail: state already Released / nonReentrant.
-            try escrow.release(escrowId) {} catch {}
-            try escrow.refund(escrowId) {} catch {}
+            try escrow.release(escrowId) { } catch { }
+            try escrow.refund(escrowId) { } catch { }
         }
     }
 }
 
 contract BotAttestationEscrowTest is Test {
+    event DenylistUpdated(
+        address indexed previousDenylist, address indexed newDenylist, address indexed actor, uint256 timestamp
+    );
+
     Denylist denylist;
     Vault vault;
     DisputePanel panel;
     BotAttestationEscrow escrow;
 
+    address governance;
     address payer;
     address payee;
     address arb1;
@@ -55,7 +64,11 @@ contract BotAttestationEscrowTest is Test {
         denylist = new Denylist();
         vault = new Vault(address(denylist));
         panel = new DisputePanel();
-        escrow = new BotAttestationEscrow(address(denylist), address(vault), address(panel));
+        governance = makeAddr("governance");
+        escrow = new BotAttestationEscrow(address(denylist), address(vault), address(panel), governance);
+        escrow.transferOwnership(governance);
+        vm.prank(governance);
+        escrow.acceptOwnership();
 
         payer = makeAddr("payer");
         payee = makeAddr("payee");
@@ -72,16 +85,26 @@ contract BotAttestationEscrowTest is Test {
         vm.deal(payer, 10 ether);
     }
 
-    function _create(bytes32 escrowId, uint256 amount, uint256 duration) internal {
+    function _create(
+        bytes32 escrowId,
+        uint256 amount,
+        uint256 duration
+    ) internal {
         vm.prank(payer);
-        escrow.createEscrow{value: amount}(escrowId, payee, payerBot, payeeBot, duration);
+        escrow.createEscrow{ value: amount }(escrowId, payee, payerBot, payeeBot, duration);
     }
 
-    function _openPanel(bytes32 escrowId, bytes32 disputeId) internal {
+    function _openPanel(
+        bytes32 escrowId,
+        bytes32 disputeId
+    ) internal {
         panel.openDispute(disputeId, escrowId, "attestation stale");
     }
 
-    function _panelRule(bytes32 disputeId, bool uphold) internal {
+    function _panelRule(
+        bytes32 disputeId,
+        bool uphold
+    ) internal {
         // upheld == votesFor >= votesAgainst. support=true counts as votesFor.
         vm.prank(arb1);
         panel.vote(disputeId, uphold);
@@ -91,7 +114,10 @@ contract BotAttestationEscrowTest is Test {
         panel.vote(disputeId, false);
     }
 
-    function _disputeAndUphold(bytes32 escrowId, bytes32 disputeId) internal {
+    function _disputeAndUphold(
+        bytes32 escrowId,
+        bytes32 disputeId
+    ) internal {
         _openPanel(escrowId, disputeId);
         vm.prank(payee);
         escrow.dispute(escrowId, disputeId);
@@ -105,8 +131,10 @@ contract BotAttestationEscrowTest is Test {
         _create(escrowId, amount, 3600);
 
         uint256 before = payee.balance;
+        assertEq(escrow.lockedValue(), amount);
         vm.prank(payer);
         escrow.release(escrowId);
+        assertEq(escrow.lockedValue(), 0);
         assertEq(payee.balance, before + amount);
         (,,,,,,, BotAttestationEscrow.EscrowState state,) = _escrowTuple(escrowId);
         assertEq(uint256(state), uint256(BotAttestationEscrow.EscrowState.Released));
@@ -121,8 +149,10 @@ contract BotAttestationEscrowTest is Test {
         vm.warp(block.timestamp + 101);
 
         uint256 before = payer.balance;
+        assertEq(escrow.lockedValue(), amount);
         vm.prank(payer);
         escrow.refund(escrowId);
+        assertEq(escrow.lockedValue(), 0);
         assertEq(payer.balance, before + amount);
     }
 
@@ -144,7 +174,7 @@ contract BotAttestationEscrowTest is Test {
         bytes32 escrowId = keccak256("deal-3b");
         vm.prank(payer);
         vm.expectRevert(abi.encodeWithSignature("AttestationFailed(string)", "payee bot denylisted"));
-        escrow.createEscrow{value: 1 ether}(escrowId, payee, payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: 1 ether }(escrowId, payee, payerBot, payeeBot, 3600);
         assertFalse(escrow.usedEscrowIds(escrowId));
     }
 
@@ -154,7 +184,7 @@ contract BotAttestationEscrowTest is Test {
 
         vm.prank(payer);
         vm.expectRevert(BotAttestationEscrow.Replay.selector);
-        escrow.createEscrow{value: 1 ether}(escrowId, payee, payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: 1 ether }(escrowId, payee, payerBot, payeeBot, 3600);
     }
 
     function test_replayRejectedAfterRefund() public {
@@ -166,7 +196,7 @@ contract BotAttestationEscrowTest is Test {
 
         vm.prank(payer);
         vm.expectRevert(BotAttestationEscrow.Replay.selector);
-        escrow.createEscrow{value: 1 ether}(escrowId, payee, payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: 1 ether }(escrowId, payee, payerBot, payeeBot, 3600);
     }
 
     function test_blocksReleaseWhenBurned() public {
@@ -187,7 +217,7 @@ contract BotAttestationEscrowTest is Test {
         bytes32 escrowId = keccak256("deal-tier");
         vm.prank(payer);
         vm.expectRevert(abi.encodeWithSignature("AttestationFailed(string)", "payee bot below Financial tier"));
-        escrow.createEscrow{value: 1 ether}(escrowId, payee, payerBot, chatBot, 3600);
+        escrow.createEscrow{ value: 1 ether }(escrowId, payee, payerBot, chatBot, 3600);
     }
 
     function test_releaseRevertsAfterExpiry() public {
@@ -420,14 +450,14 @@ contract BotAttestationEscrowTest is Test {
         vm.deal(eve, 1 ether);
         vm.prank(eve);
         vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
-        escrow.createEscrow{value: 1 ether}(keccak256("steal"), payee, payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: 1 ether }(keccak256("steal"), payee, payerBot, payeeBot, 3600);
     }
 
     function test_unboundPayeeRejected() public {
         address evePayee = makeAddr("evePayee");
         vm.prank(payer);
         vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
-        escrow.createEscrow{value: 1 ether}(keccak256("bad-payee"), evePayee, payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: 1 ether }(keccak256("bad-payee"), evePayee, payerBot, payeeBot, 3600);
     }
 
     function test_createRejectsUnboundBot() public {
@@ -437,7 +467,7 @@ contract BotAttestationEscrowTest is Test {
 
         vm.prank(payer);
         vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
-        escrow.createEscrow{value: 1 ether}(keccak256("unbound"), payee, payerBot, unbound, 3600);
+        escrow.createEscrow{ value: 1 ether }(keccak256("unbound"), payee, payerBot, unbound, 3600);
     }
 
     function test_releaseRevertsIfOperatorRotated() public {
@@ -463,19 +493,19 @@ contract BotAttestationEscrowTest is Test {
     function test_zeroValueRejected() public {
         vm.prank(payer);
         vm.expectRevert(abi.encodeWithSignature("AttestationFailed(string)", "zero amount"));
-        escrow.createEscrow{value: 0}(keccak256("zero"), payee, payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: 0 }(keccak256("zero"), payee, payerBot, payeeBot, 3600);
     }
 
     function test_selfPayeeRejected() public {
         vm.prank(payer);
         vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
-        escrow.createEscrow{value: 1 ether}(keccak256("self"), payer, payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: 1 ether }(keccak256("self"), payer, payerBot, payeeBot, 3600);
     }
 
     function test_zeroBotIdRejected() public {
         vm.prank(payer);
         vm.expectRevert(BotAttestationEscrow.InvalidParties.selector);
-        escrow.createEscrow{value: 1 ether}(keccak256("zbot"), payee, bytes32(0), payeeBot, 3600);
+        escrow.createEscrow{ value: 1 ether }(keccak256("zbot"), payee, bytes32(0), payeeBot, 3600);
     }
 
     function test_signatureDenylistBlocksRelease() public {
@@ -492,10 +522,36 @@ contract BotAttestationEscrowTest is Test {
         bytes32 escrowId = keccak256("deal-prompt");
         _create(escrowId, 1 ether, 3600);
         denylist.addPrompt(keccak256("p2"));
+        assertEq(
+            uint256(denylist.check(keccak256("w2"), keccak256("b2"), keccak256("p2"))),
+            uint256(Denylist.MatchLevel.PromptBlock)
+        );
 
         vm.prank(payer);
         vm.expectRevert(abi.encodeWithSignature("AttestationFailed(string)", "payee bot denylisted"));
         escrow.release(escrowId);
+    }
+
+    function test_promptUnbanRestoresRelease() public {
+        bytes32 escrowId = keccak256("deal-prompt-unban");
+        _create(escrowId, 1 ether, 3600);
+        denylist.addPrompt(keccak256("p2"));
+
+        vm.prank(payer);
+        vm.expectRevert(abi.encodeWithSignature("AttestationFailed(string)", "payee bot denylisted"));
+        escrow.release(escrowId);
+
+        denylist.remove(keccak256("p2"), Denylist.Bucket.Prompt);
+        assertEq(
+            uint256(denylist.check(keccak256("w2"), keccak256("b2"), keccak256("p2"))),
+            uint256(Denylist.MatchLevel.None)
+        );
+        assertTrue(denylist.everListed(Denylist.Bucket.Prompt, keccak256("p2")));
+
+        vm.prank(payer);
+        escrow.release(escrowId);
+        assertEq(payee.balance, 1 ether);
+        assertEq(escrow.lockedValue(), 0);
     }
 
     function test_releaseToReceivingContract() public {
@@ -505,7 +561,7 @@ contract BotAttestationEscrowTest is Test {
         uint256 amount = 1 ether;
 
         vm.prank(payer);
-        escrow.createEscrow{value: amount}(escrowId, address(sink), payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: amount }(escrowId, address(sink), payerBot, payeeBot, 3600);
 
         vm.prank(payer);
         escrow.release(escrowId);
@@ -519,7 +575,7 @@ contract BotAttestationEscrowTest is Test {
         uint256 amount = 1 ether;
 
         vm.prank(payer);
-        escrow.createEscrow{value: amount}(escrowId, address(evil), payerBot, payeeBot, 3600);
+        escrow.createEscrow{ value: amount }(escrowId, address(evil), payerBot, payeeBot, 3600);
         evil.setEscrowId(escrowId);
 
         vm.prank(payer);
@@ -548,30 +604,101 @@ contract BotAttestationEscrowTest is Test {
 
     function test_constructorRejectsZeroPanel() public {
         vm.expectRevert(BotAttestationEscrow.ZeroAddress.selector);
-        new BotAttestationEscrow(address(denylist), address(vault), address(0));
+        new BotAttestationEscrow(address(denylist), address(vault), address(0), makeAddr("gov-panel"));
     }
 
     function test_constructorRejectsZeroVault() public {
         vm.expectRevert(BotAttestationEscrow.ZeroAddress.selector);
-        new BotAttestationEscrow(address(denylist), address(0), address(panel));
+        new BotAttestationEscrow(address(denylist), address(0), address(panel), makeAddr("gov-vault"));
     }
 
-    function test_ownerCanRepointDeps() public {
+    function test_constructorRejectsDeployerAsGovernance() public {
+        vm.expectRevert(BotAttestationEscrow.InvalidGovernance.selector);
+        new BotAttestationEscrow(address(denylist), address(vault), address(panel), address(this));
+    }
+
+    function test_constructorRejectsZeroGovernance() public {
+        vm.expectRevert(BotAttestationEscrow.ZeroAddress.selector);
+        new BotAttestationEscrow(address(denylist), address(vault), address(panel), address(0));
+    }
+
+    function test_governanceCanRepointDepsWhenUnfunded() public {
         Denylist d2 = new Denylist();
         Vault v2 = new Vault(address(d2));
         DisputePanel p2 = new DisputePanel();
+        vm.startPrank(governance);
         escrow.setDenylist(address(d2));
         escrow.setVault(address(v2));
         escrow.setDisputePanel(address(p2));
+        vm.stopPrank();
         assertEq(address(escrow.denylist()), address(d2));
         assertEq(address(escrow.vault()), address(v2));
         assertEq(address(escrow.disputePanel()), address(p2));
+        assertEq(escrow.lockedValue(), 0);
     }
 
     function test_strangerCannotRepointDeps() public {
         vm.prank(makeAddr("eve"));
-        vm.expectRevert();
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
         escrow.setDenylist(address(denylist));
+    }
+
+    function test_setDenylistPolicy() public {
+        address gov = makeAddr("gov-policy");
+        BotAttestationEscrow fresh = new BotAttestationEscrow(address(denylist), address(vault), address(panel), gov);
+        Denylist other = new Denylist();
+
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        fresh.setDenylist(address(other));
+
+        vm.prank(gov);
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        fresh.setDenylist(address(other));
+
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.FundingBeforeGovernance.selector);
+        fresh.createEscrow{ value: 1 ether }(keccak256("before-accept"), payee, payerBot, payeeBot, 3600);
+
+        fresh.transferOwnership(gov);
+        vm.prank(gov);
+        fresh.acceptOwnership();
+        assertEq(fresh.owner(), gov);
+        assertEq(fresh.governance(), gov);
+
+        vm.expectEmit(true, true, true, true, address(fresh));
+        emit DenylistUpdated(address(denylist), address(other), gov, block.timestamp);
+        vm.prank(gov);
+        fresh.setDenylist(address(other));
+        assertEq(address(fresh.denylist()), address(other));
+
+        vm.prank(gov);
+        fresh.setDenylist(address(denylist));
+
+        vm.prank(address(this));
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        fresh.setDenylist(address(other));
+
+        bytes32 fundedId = keccak256("funded-policy");
+        vm.prank(payer);
+        fresh.createEscrow{ value: 1 ether }(fundedId, payee, payerBot, payeeBot, 3600);
+        assertEq(fresh.lockedValue(), 1 ether);
+
+        vm.startPrank(gov);
+        vm.expectRevert(BotAttestationEscrow.DependencyChangeWhileFunded.selector);
+        fresh.setDenylist(address(other));
+        vm.expectRevert(BotAttestationEscrow.DependencyChangeWhileFunded.selector);
+        fresh.setVault(address(vault));
+        vm.expectRevert(BotAttestationEscrow.DependencyChangeWhileFunded.selector);
+        fresh.setDisputePanel(address(panel));
+        vm.stopPrank();
+
+        vm.prank(payer);
+        fresh.release(fundedId);
+        assertEq(fresh.lockedValue(), 0);
+
+        vm.prank(gov);
+        fresh.setDenylist(address(other));
+        assertEq(address(fresh.denylist()), address(other));
     }
 
     function test_vaultOperatorBindAndRotate() public {
@@ -584,7 +711,9 @@ contract BotAttestationEscrowTest is Test {
         assertEq(vault.operator(botId), payee);
     }
 
-    function _escrowTuple(bytes32 escrowId)
+    function _escrowTuple(
+        bytes32 escrowId
+    )
         internal
         view
         returns (
@@ -623,13 +752,17 @@ contract DeployEscrowGuardTest is Test {
 
     function test_refusesEthSepoliaByDefault() public {
         vm.chainId(11155111);
-        vm.expectRevert(bytes("DeployEscrow: Base Sepolia (84532) only; see README to switch to ETH Sepolia (11155111)"));
+        vm.expectRevert(
+            bytes("DeployEscrow: Base Sepolia (84532) only; see README to switch to ETH Sepolia (11155111)")
+        );
         deploy.requireAllowedChain();
     }
 
     function test_refusesAnvil() public {
         vm.chainId(31337);
-        vm.expectRevert(bytes("DeployEscrow: Base Sepolia (84532) only; see README to switch to ETH Sepolia (11155111)"));
+        vm.expectRevert(
+            bytes("DeployEscrow: Base Sepolia (84532) only; see README to switch to ETH Sepolia (11155111)")
+        );
         deploy.requireAllowedChain();
     }
 
@@ -680,12 +813,24 @@ contract DeployEscrowGuardTest is Test {
         assertEq(address(escrow.denylist()), address(denylist));
         assertEq(address(escrow.vault()), address(vault));
         assertEq(address(escrow.disputePanel()), address(panel));
+        assertEq(escrow.governance(), timelock);
         assertEq(escrow.owner(), address(deploy));
         assertEq(escrow.pendingOwner(), timelock);
+
+        Denylist swapped = new Denylist();
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        escrow.setDenylist(address(swapped));
 
         vm.prank(timelock);
         escrow.acceptOwnership();
         assertEq(escrow.owner(), timelock);
         assertEq(escrow.pendingOwner(), address(0));
+
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        escrow.setDenylist(address(swapped));
+
+        vm.prank(timelock);
+        escrow.setDenylist(address(swapped));
+        assertEq(address(escrow.denylist()), address(swapped));
     }
 }
