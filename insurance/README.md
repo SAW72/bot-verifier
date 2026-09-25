@@ -18,7 +18,7 @@ A fee-funded experimental pool that *might* pay a documented claim when a vaulte
 
 ## Claims Process
 1. Bot owner or victim files a claim with evidence hash
-2. Insurance bot validates against on-chain logs
+2. Claims bot / backstop validator checks the claim against on-chain logs
 3. Committee votes; majority + timelock releases funds
 4. Payout is public and immutable
 

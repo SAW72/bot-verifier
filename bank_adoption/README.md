@@ -22,7 +22,7 @@ Stamps do **not** create a lawsuit waiver. Institutions that want allocation of 
 
 ## What a Bot Builder Gets
 
-- A clear path to bank access
+- An optional experimental signal — no promise of bank access
 - A tier assignment based on what the bot actually does
 - A public reputation that follows it everywhere
 - A way to prove it is not the same as a previously destroyed dangerous bot

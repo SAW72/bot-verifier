@@ -90,7 +90,8 @@ class RegisterBody(BaseModel):
     fingerprint: Dict[str, Any]
     fingerprint_hash: str
     tier: int = 1
-    insurance_level: str = "standard"
+    # Experimental claims-backstop tier. Not an insurance product or coverage level.
+    claims_backstop_tier: str = "standard"
     scoring_mode: str = "keyword"
     require_attestation: bool = False
 
@@ -147,7 +148,7 @@ def _stamp(record: Dict[str, Any], *, require_attestation: bool = False) -> Dict
         "tier": record["tier"],
         "fingerprint_hash": record["fingerprint_hash"],
         "denylist_status": DENYLIST.get(record["fingerprint_hash"], "clean"),
-        "insurance_level": record.get("insurance_level", "standard"),
+        "claims_backstop_tier": record.get("claims_backstop_tier", "standard"),
         "scoring_mode": scoring_mode,
         "attestation_grade": grade,
         "active": bool(record.get("active", True)),
