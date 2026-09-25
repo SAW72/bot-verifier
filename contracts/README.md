@@ -124,15 +124,15 @@ Then `CORE_TIMELOCK` calls `acceptOwnership()` on `BotAttestationEscrow`.
 
 ## Base Sepolia addresses (84532)
 
-Fill in after Spencer broadcasts. Canonical copy: `deployments/base-sepolia.json` (template until then).
+Core stack is live. Canonical copy: [`deployments/base-sepolia.json`](../deployments/base-sepolia.json). Denylist and Vault Ownable2Step `acceptOwnership` from `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`) is still pending. Escrow and BVT were not deployed this pass.
 
 | Contract | Address | Tx |
 | --- | --- | --- |
-| Denylist | _pending Spencer deploy_ | |
-| Vault | _pending Spencer deploy_ | |
-| InsuranceFund | _pending Spencer deploy_ | |
-| Liability | _pending Spencer deploy_ | |
-| DisputePanel | _pending Spencer deploy_ | |
+| Denylist | `0xF0f260967D377E07Bdd7840862508ddB23C012b8` | `0x739331697a228684f18a69c54d312baa7557dfcb92c7875c48fa7b2e4c84a429` |
+| Vault | `0xa1a067D2F58Ae54d4bb5Ec06d893B29E23A45CB7` | `0xe2524dd91b6485f1e484409610659cf3c3819ee7c0e7b5044cda5651f26a447b` |
+| InsuranceFund | `0x19fc26B36Cb2031062eD90C19db64b3b09753ab8` | `0xa71db2c304d8e80e4043e4d093a0c102ec619624ab0500d0bc7246dc27d3edd7` |
+| Liability | `0x554Caf5a214B8d70D675C09186C5EAE24FEB7307` | `0x99865db9b9f4a6807b085cec8c50d22160025c4df09afc609fb52b9758fe6261` |
+| DisputePanel | `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb` | `0x9ecd10d67054fbf9e63ad25dd1520ed809fbf94c4ab1f19ad84e81899562b77f` |
 | BotAttestationEscrow | _pending Spencer deploy_ | |
 
 ## BVT stack (additive)
