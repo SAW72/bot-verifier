@@ -124,16 +124,35 @@ Then `CORE_TIMELOCK` calls `acceptOwnership()` on `BotAttestationEscrow`. Do not
 
 ## Base Sepolia addresses (84532)
 
-Core stack is live. Canonical copy: [`deployments/base-sepolia.json`](../deployments/base-sepolia.json). Denylist `owner` is `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`); its `pendingOwner` is zero. Vault `acceptOwnership` is still outstanding: `pendingOwner` is that timelock and the deploy sender (`0x5D467FA00eC0E92044f779e495a17db66c5964aa`) is still owner. Escrow and BVT are not deployed.
+Core stack is live. Canonical copy: [`deployments/base-sepolia.json`](../deployments/base-sepolia.json).
+
+PR #11 `DeployDenylist` redeployed **Denylist and Vault only**. Liability, InsuranceFund, and DisputePanel are unchanged. Escrow and BVT are not deployed. The new Vault `denylist()` is the new Denylist.
+
+**Gate A is done on the new pair.** `acceptOwnership` is complete on both the new Denylist and the new Vault. On both, `owner` is `CORE_TIMELOCK` (`0x10CC9474b45625ADfd05C209f2518023484878D9`) and `pendingOwner` is the zero address.
+
+`acceptOwnership` txs (status success): Denylist `0xc8ad34d956d802b3d0d8d032178c9b6786ead6afec1bd502158f1f603b3e3949` (block 47294619), Vault `0xb2aa7515c4c9bac0bbe3403bbd0bb6b8afa72452a4d4ed9ad626fc26944df9b0` (block 47294624). The earlier `transferOwnership(CORE_TIMELOCK)` txs were Denylist `0xb9767bc6c2b54ff4ae805c09b401c0c5ffb0079be0a54b7925eb9dd41758443c` (block 47294165) and Vault `0xd2b0aef1af321729e7361305a591ed7d8aacb2d84724968f979598e8be2d4076` (block 47294166).
+
+Listing migration replay of `Listed` / `Unlisted` from the previous Denylist was empty: **0 Exact / 0 Signature / 0 Prompt**.
 
 | Contract | Address | Tx |
 | --- | --- | --- |
-| Denylist | `0xF0f260967D377E07Bdd7840862508ddB23C012b8` | `0x739331697a228684f18a69c54d312baa7557dfcb92c7875c48fa7b2e4c84a429` |
-| Vault | `0xa1a067D2F58Ae54d4bb5Ec06d893B29E23A45CB7` | `0xe2524dd91b6485f1e484409610659cf3c3819ee7c0e7b5044cda5651f26a447b` |
+| Denylist | `0xeE76876bECcFc1B58fC06fF4E654a517d784B224` | `0xc4f2bf7ac1b256f79aaa566db6c88973761b41ae0e510d16e49cc2c7897c0c32` |
+| Vault | `0x1463D664fA467FBCDA4B05443434494f05e565bc` | `0xeb0b97ac3c7abd49ffd99baef18703cb44563ff906e664d494325174ef6a8171` |
 | InsuranceFund | `0x19fc26B36Cb2031062eD90C19db64b3b09753ab8` | `0xa71db2c304d8e80e4043e4d093a0c102ec619624ab0500d0bc7246dc27d3edd7` |
 | Liability | `0x554Caf5a214B8d70D675C09186C5EAE24FEB7307` | `0x99865db9b9f4a6807b085cec8c50d22160025c4df09afc609fb52b9758fe6261` |
 | DisputePanel | `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb` | `0x9ecd10d67054fbf9e63ad25dd1520ed809fbf94c4ab1f19ad84e81899562b77f` |
 | BotAttestationEscrow | _pending Spencer deploy_ | |
+
+Create txs: Denylist block 47294163, Vault block 47294164. The Tx column is the create transaction.
+
+### Superseded (deprecated, left on chain)
+
+The previous pair still has code. This redeploy did not delete it. The old Vault `denylist()` is still the old Denylist.
+
+| Contract | Address | Tx | Status |
+| --- | --- | --- | --- |
+| Denylist | `0xF0f260967D377E07Bdd7840862508ddB23C012b8` | `0x739331697a228684f18a69c54d312baa7557dfcb92c7875c48fa7b2e4c84a429` | Deprecated. Superseded by `0xeE76876bECcFc1B58fC06fF4E654a517d784B224`. Owner remains `CORE_TIMELOCK`; `pendingOwner` is zero. Untouched by the redeploy. |
+| Vault | `0xa1a067D2F58Ae54d4bb5Ec06d893B29E23A45CB7` | `0xe2524dd91b6485f1e484409610659cf3c3819ee7c0e7b5044cda5651f26a447b` | Deprecated. Superseded by `0x1463D664fA467FBCDA4B05443434494f05e565bc`. Still points at the old Denylist. |
 
 ## BVT stack (additive)
 
