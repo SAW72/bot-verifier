@@ -33,6 +33,8 @@ Contract slots, in deploy order:
 
 `Denylist`, `Vault`, and `BotAttestationEscrow` use OpenZeppelin **Ownable2Step**. After `transferOwnership(CORE_TIMELOCK)` the deployer is still owner until `coreTimelock` calls `acceptOwnership`. On the current book Gate A is done for the live Denylist and the live Vault: `acceptOwnership` is `complete`, `owner` is `coreTimelock`, and `pendingOwner` is the zero address. The previous Denylist and Vault are under `superseded` and stay on chain. The superseded Denylist `owner` is `coreTimelock` and its `pendingOwner` is zero; it was not touched by the PR #11 redeploy. The superseded Vault still points at that old Denylist. Listing migration replay of `Listed` / `Unlisted` from the old Denylist was empty (0 Exact / 0 Signature / 0 Prompt). Escrow is not deployed.
 
-`DisputePanel` ownership moves immediately via `setOwner`. `openDispute` reverts with `panel not seated` until that owner has called `setArbitrator` for three addresses (`arbitratorCount >= 3`).
+`DisputePanel` ownership moves immediately via `setOwner`. `openDispute` reverts with `panel not seated` until that owner has called `setArbitrator` for three addresses (`arbitratorCount >= 3`). On the live panel that count was 0 on 2026-09-25. Gate B seating is `script/OpsDisputePanel.s.sol`. Prefer it before `script/DeployBotAttestationEscrow.s.sol`. Commands: [`script/DEPLOY_ESCROW_BASE_SEPOLIA.md`](../script/DEPLOY_ESCROW_BASE_SEPOLIA.md).
+
+`BotAttestationEscrow.address` stays `null` and `deployTx` stays `""` until Spencer broadcasts that deploy and pastes the real values. Do not invent an escrow address. A simulation does not fill this file.
 
 Spencer fills this file. Agents do not `--broadcast`.

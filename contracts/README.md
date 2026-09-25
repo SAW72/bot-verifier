@@ -30,7 +30,7 @@ Liability is created first (with `address(0)` insurance) so `InsuranceFund` can 
 7. `transferOwnership(CORE_TIMELOCK)` on Denylist and Vault (OZ **Ownable2Step** — deployer stays owner until the timelock calls `acceptOwnership`)
 8. `setOwner(CORE_TIMELOCK)` on InsuranceFund, Liability, DisputePanel (immediate; not two-step)
 
-**Post-step (panel seat).** `DisputePanel.openDispute` reverts `panel not seated` until `arbitratorCount >= 3`. After `setOwner`, only `CORE_TIMELOCK` can call `setArbitrator` — appoint three distinct arbitrators before any dispute is opened. The deploy script does not appoint them.
+**Post-step (panel seat, Gate B).** `DisputePanel.openDispute` reverts `panel not seated` until `arbitratorCount >= 3`. After `setOwner`, only `CORE_TIMELOCK` can call `setArbitrator` — appoint three distinct arbitrators before any dispute is opened. The core deploy script does not appoint them. On the live panel, seat them with `script/OpsDisputePanel.s.sol` (`OpsDisputePanelSeat`). Prefer that seat before the escrow broadcast. Commands: [`script/DEPLOY_ESCROW_BASE_SEPOLIA.md`](../script/DEPLOY_ESCROW_BASE_SEPOLIA.md).
 
 ### (2) Escrow — `script/DeployBotAttestationEscrow.s.sol`
 
@@ -105,11 +105,14 @@ After a successful broadcast, paste addresses below and in [`deployments/base-se
 
 ### Escrow deploy (after core addresses exist)
 
+Pre-filled simulate command, Spencer-only broadcast, Gate B seating, and the accept-then-paste steps: [`script/DEPLOY_ESCROW_BASE_SEPOLIA.md`](../script/DEPLOY_ESCROW_BASE_SEPOLIA.md). SIMULATE is not a live deploy. Agents do not pass `--broadcast`. The block below is the same script with the live addresses filled in.
+
 ```bash
-export DENYLIST=0x...          # from the core broadcast
-export VAULT=0x...
-export DISPUTE_PANEL=0x...
-export CORE_TIMELOCK=0x...     # same timelock; must not be the deployer
+# PRIVATE_KEY from the shell. Deployer, not CORE_TIMELOCK. Never commit it.
+export DENYLIST=0xeE76876bECcFc1B58fC06fF4E654a517d784B224
+export VAULT=0x1463D664fA467FBCDA4B05443434494f05e565bc
+export DISPUTE_PANEL=0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb
+export CORE_TIMELOCK=0x10CC9474b45625ADfd05C209f2518023484878D9  # must not be the deployer
 
 # simulate (no broadcast)
 forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow \
@@ -143,6 +146,8 @@ Listing migration replay of `Listed` / `Unlisted` from the previous Denylist was
 | Liability | `0x554Caf5a214B8d70D675C09186C5EAE24FEB7307` | `0x99865db9b9f4a6807b085cec8c50d22160025c4df09afc609fb52b9758fe6261` |
 | DisputePanel | `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb` | `0x9ecd10d67054fbf9e63ad25dd1520ed809fbf94c4ab1f19ad84e81899562b77f` |
 | BotAttestationEscrow | _pending Spencer deploy_ | |
+
+`DisputePanel.owner()` is `CORE_TIMELOCK`. Gate B is not seated (`arbitratorCount` was 0 on 2026-09-25). `BotAttestationEscrow` stays pending until Spencer broadcasts and the real address is pasted here. Do not invent one.
 
 Create txs: Denylist block 47294163, Vault block 47294164. The Tx column is the create transaction.
 
