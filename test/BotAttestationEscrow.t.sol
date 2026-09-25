@@ -91,6 +91,13 @@ contract BotAttestationEscrowTest is Test {
         panel.vote(disputeId, false);
     }
 
+    function _disputeAndUphold(bytes32 escrowId, bytes32 disputeId) internal {
+        _openPanel(escrowId, disputeId);
+        vm.prank(payee);
+        escrow.dispute(escrowId, disputeId);
+        _panelRule(disputeId, true);
+    }
+
     function test_createAndRelease() public {
         bytes32 escrowId = keccak256("deal-1");
         uint256 amount = 1 ether;
@@ -296,6 +303,79 @@ contract BotAttestationEscrowTest is Test {
         escrow.refund(escrowId);
         assertEq(payer.balance, before + amount);
         assertEq(address(escrow).balance, 0);
+    }
+
+    /// @notice H-1 (post-ruling): denylist after uphold must not lock ETH. Release pays e.payee.
+    function test_upheldReleaseSucceedsWhenPayeeDenylisted() public {
+        bytes32 escrowId = keccak256("deal-uphold-deny");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 3600);
+        _disputeAndUphold(escrowId, keccak256("d-uphold-deny"));
+
+        denylist.addExact(keccak256("w2"));
+
+        // Refund stays closed. The only exit is release to the create-time payee.
+        vm.prank(payer);
+        vm.expectRevert(BotAttestationEscrow.DisputePending.selector);
+        escrow.refund(escrowId);
+
+        uint256 before = payee.balance;
+        vm.prank(payer);
+        escrow.release(escrowId);
+        assertEq(payee.balance, before + amount);
+        assertEq(address(escrow).balance, 0);
+        (,,,,,,, BotAttestationEscrow.EscrowState state,) = _escrowTuple(escrowId);
+        assertEq(uint256(state), uint256(BotAttestationEscrow.EscrowState.Released));
+    }
+
+    /// @notice H-1 (post-ruling): burning the payee bot after uphold must not lock ETH.
+    function test_upheldReleaseSucceedsWhenPayeeBurned() public {
+        bytes32 escrowId = keccak256("deal-uphold-burn");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 3600);
+        _disputeAndUphold(escrowId, keccak256("d-uphold-burn"));
+
+        vault.burn(payeeBot);
+
+        uint256 before = payee.balance;
+        vm.prank(payee);
+        escrow.release(escrowId);
+        assertEq(payee.balance, before + amount);
+        assertEq(address(escrow).balance, 0);
+    }
+
+    /// @notice H-1 (post-ruling): operator rotation after uphold pays the original e.payee.
+    function test_upheldReleasePaysOriginalPayeeAfterOperatorRotate() public {
+        bytes32 escrowId = keccak256("deal-uphold-rotate");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 3600);
+        _disputeAndUphold(escrowId, keccak256("d-uphold-rotate"));
+
+        address rotated = makeAddr("rotated-payee");
+        vault.setOperator(payeeBot, rotated);
+
+        uint256 payeeBefore = payee.balance;
+        uint256 rotatedBefore = rotated.balance;
+        vm.prank(payer);
+        escrow.release(escrowId);
+        assertEq(payee.balance, payeeBefore + amount);
+        assertEq(rotated.balance, rotatedBefore);
+        assertEq(address(escrow).balance, 0);
+    }
+
+    /// @notice Same strand on the payer side: a post-uphold denylist must not block release.
+    function test_upheldReleaseSucceedsWhenPayerDenylisted() public {
+        bytes32 escrowId = keccak256("deal-uphold-payer-deny");
+        uint256 amount = 1 ether;
+        _create(escrowId, amount, 3600);
+        _disputeAndUphold(escrowId, keccak256("d-uphold-payer-deny"));
+
+        denylist.addExact(keccak256("w1"));
+
+        uint256 before = payee.balance;
+        vm.prank(payee);
+        escrow.release(escrowId);
+        assertEq(payee.balance, before + amount);
     }
 
     function test_panelUpholdBlocksRefundAllowsRelease() public {
