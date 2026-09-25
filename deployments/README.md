@@ -4,7 +4,7 @@ Committed address book for networks this repo is allowed to deploy. **Base Sepol
 
 ## `base-sepolia.json`
 
-Core contract addresses are filled in. `BotAttestationEscrow` and the BVT slots stay `null` with empty `deployTx` until those deploys. Do not invent addresses. Do not commit `PRIVATE_KEY`, RPC credentials, or API keys.
+Core contract addresses and `BotAttestationEscrow` are filled in. The BVT slots stay `null` with empty `deployTx`. Do not invent addresses. Do not commit `PRIVATE_KEY`, RPC credentials, or API keys.
 
 JSON has no comments. Field meanings:
 
@@ -13,7 +13,7 @@ JSON has no comments. Field meanings:
 | `schemaVersion` | `1`. Bump only if the shape changes. |
 | `chainId` | Must stay `84532` (Base Sepolia). |
 | `network` | `base-sepolia`. |
-| `status` | `live` once core contracts are on Base Sepolia. Escrow and BVT can still be null. |
+| `status` | `live` once core contracts are on Base Sepolia. BVT can still be null. |
 | `notes` | Free text. Keep the warning that agents do not `--broadcast`. |
 | `coreTimelock` | `CORE_TIMELOCK` address (timelock or multisig, not the deployer), or `null`. |
 | `bvtGuardian` | `BVT_GUARDIAN` address, or `null`. |
@@ -31,10 +31,10 @@ Contract slots, in deploy order:
 2. `BotAttestationEscrow` — `script/DeployBotAttestationEscrow.s.sol`
 3. `BVT`, `BVTStaking`, `BVTFeeRouter`, `BVTTimelock`, `BVTGovernor` — optional `script/DeployBVT.s.sol`
 
-`Denylist`, `Vault`, and `BotAttestationEscrow` use OpenZeppelin **Ownable2Step**. After `transferOwnership(CORE_TIMELOCK)` the deployer is still owner until `coreTimelock` calls `acceptOwnership`. On the current book Gate A is done for the live Denylist and the live Vault: `acceptOwnership` is `complete`, `owner` is `coreTimelock`, and `pendingOwner` is the zero address. The previous Denylist and Vault are under `superseded` and stay on chain. The superseded Denylist `owner` is `coreTimelock` and its `pendingOwner` is zero; it was not touched by the PR #11 redeploy. The superseded Vault still points at that old Denylist. Listing migration replay of `Listed` / `Unlisted` from the old Denylist was empty (0 Exact / 0 Signature / 0 Prompt). Escrow is not deployed.
+`Denylist`, `Vault`, and `BotAttestationEscrow` use OpenZeppelin **Ownable2Step**. After `transferOwnership(CORE_TIMELOCK)` the deployer is still owner until `coreTimelock` calls `acceptOwnership`. On the current book that accept is `complete` for the live Denylist, the live Vault, and `BotAttestationEscrow`: `owner` is `coreTimelock` and `pendingOwner` is the zero address. The previous Denylist and Vault are under `superseded` and stay on chain. The superseded Denylist `owner` is `coreTimelock` and its `pendingOwner` is zero; it was not touched by the PR #11 redeploy. The superseded Vault still points at that old Denylist. Listing migration replay of `Listed` / `Unlisted` from the old Denylist was empty (0 Exact / 0 Signature / 0 Prompt).
 
-`DisputePanel` ownership moves immediately via `setOwner`. `openDispute` reverts with `panel not seated` until that owner has called `setArbitrator` for three addresses (`arbitratorCount >= 3`). On the live panel that count was 0 on 2026-09-25. Gate B seating is `script/OpsDisputePanel.s.sol`. Prefer it before `script/DeployBotAttestationEscrow.s.sol`. Commands: [`script/DEPLOY_ESCROW_BASE_SEPOLIA.md`](../script/DEPLOY_ESCROW_BASE_SEPOLIA.md).
+`BotAttestationEscrow` is live at `0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c` (deploy tx `0x700d9bac95e8833bd7e93721a88d689a0fb839c9e6108858c52560eae111948e`, block 47299930). `transferOwnership` is `0x00aaef315f23de346bfe63e77e0f04d3fbcadc370b0db21bb7abb8f8e12c40f2` (same block). `acceptOwnership` is `0xd2e982568811c3706eec074d296ef7fa4c54838de714e1a5bfc8afc9fbb73983` (block 47300275). It is linked to DisputePanel `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb`. A simulation must not overwrite this address.
 
-`BotAttestationEscrow.address` stays `null` and `deployTx` stays `""` until Spencer broadcasts that deploy and pastes the real values. Do not invent an escrow address. A simulation does not fill this file.
+`DisputePanel` ownership moves immediately via `setOwner`. `openDispute` reverts with `panel not seated` until that owner has called `setArbitrator` for three addresses (`arbitratorCount >= 3`). On the live panel Gate B is seated: `arbitratorCount` is 3. Arbitrators: `0xD5ee9fA366C3698b34204722c635989E5197B018`, `0xF4253A3a3C102Ee59e38b2AA92989C3232eDcC30`, `0xB87Ed5F74276AC6172ef53fE866675093F75936E`. Seat txs (block 47299643): `0xa97b518ad87489ab1d45ec4bef5e548c1d4bf3b9c940552e8cba1752fed7553c`, `0xf1ad4d9221b2393863d9bc6a72c1a716cf389532d2cfa63fd4df682303ed6df6`, `0xa1f8f0fb6ad78dd2d9fd9d33dabf9cde5b73195a1b292869e7d96cc985cb79a3`. Commands: [`script/DEPLOY_ESCROW_BASE_SEPOLIA.md`](../script/DEPLOY_ESCROW_BASE_SEPOLIA.md).
 
 Spencer fills this file. Agents do not `--broadcast`.

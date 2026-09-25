@@ -1,21 +1,21 @@
-# BotAttestationEscrow on Base Sepolia (simulate pack)
+# BotAttestationEscrow on Base Sepolia
 
-Prepare `BotAttestationEscrow` against the **live** core stack, and seat Gate B on the live `DisputePanel`. This pack does not deploy anything by itself.
+`BotAttestationEscrow` is **live** on Base Sepolia against the live core stack. Gate B is **seated** on the live `DisputePanel` (`arbitratorCount` is 3). This file records that state. It does not deploy anything by itself.
 
-**SIMULATE is not live.** `forge script` without `--broadcast` forks Base Sepolia and prints the calls. Nothing is sent. A green simulation is not a deployment and does not create an escrow address.
+**SIMULATE is not live.** `forge script` without `--broadcast` forks Base Sepolia and prints the calls. Nothing is sent. A green simulation is not a deployment. Do not paste a simulated address over the live book.
 
 **HARD STOP**
 
 - Agents do not pass `--broadcast` or `--resume`.
 - Do not touch Ethereum mainnet. Every script here reverts on chainid `1`.
 - Do not redeploy Denylist or Vault. Gate A is done. Use the live addresses below.
+- Do not redeploy `BotAttestationEscrow`. The live address is already in the book.
 - Do not deploy BVT in this pack.
-- Do not invent a `BotAttestationEscrow` address. It stays `null` in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json) until Spencer broadcasts and pastes the real address.
-- Do not call `createEscrow` before `CORE_TIMELOCK` has called `acceptOwnership` on the new escrow.
+- Do not call `createEscrow` from an agent session.
 
 Escrow bytecode on `main` already includes the H-1 fix (upheld release skips post-ruling attestation). This pack does not change Denylist, Vault, or Escrow bytecode.
 
-Preferred order: **seat Gate B, then simulate escrow, then Spencer broadcasts escrow.** Seating immediately after the escrow broadcast is acceptable. Do not open a dispute, and do not `createEscrow`, until both the accept and the three-arbitrator seat are done.
+Landed order: Gate B was seated (block 47299643), then escrow was created and `transferOwnership` ran (block 47299930), then `CORE_TIMELOCK` called `acceptOwnership` (block 47300275).
 
 ## Live addresses (chainid 84532)
 
@@ -24,9 +24,20 @@ Preferred order: **seat Gate B, then simulate escrow, then Spencer broadcasts es
 | Denylist | `0xeE76876bECcFc1B58fC06fF4E654a517d784B224` |
 | Vault | `0x1463D664fA467FBCDA4B05443434494f05e565bc` |
 | DisputePanel | `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb` |
+| BotAttestationEscrow | `0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c` |
 | CORE_TIMELOCK | `0x10CC9474b45625ADfd05C209f2518023484878D9` |
 
-`DisputePanel.owner()` is `CORE_TIMELOCK`. As of 2026-09-25, `arbitratorCount` was **0**. `openDispute` reverts `panel not seated` until `arbitratorCount >= 3`.
+`BotAttestationEscrow.owner()` is `CORE_TIMELOCK`. `pendingOwner` is the zero address. `acceptOwnership` is complete.
+
+`DisputePanel.owner()` is `CORE_TIMELOCK`. Gate B is seated: `arbitratorCount` is **3**. `openDispute` reverts `panel not seated` only if that count later drops below 3.
+
+| # | Arbitrator | Seat tx (block 47299643) |
+| --- | --- | --- |
+| 1 | `0xD5ee9fA366C3698b34204722c635989E5197B018` | `0xa97b518ad87489ab1d45ec4bef5e548c1d4bf3b9c940552e8cba1752fed7553c` |
+| 2 | `0xF4253A3a3C102Ee59e38b2AA92989C3232eDcC30` | `0xf1ad4d9221b2393863d9bc6a72c1a716cf389532d2cfa63fd4df682303ed6df6` |
+| 3 | `0xB87Ed5F74276AC6172ef53fE866675093F75936E` | `0xa1f8f0fb6ad78dd2d9fd9d33dabf9cde5b73195a1b292869e7d96cc985cb79a3` |
+
+Escrow create tx `0x700d9bac95e8833bd7e93721a88d689a0fb839c9e6108858c52560eae111948e` and `transferOwnership` tx `0x00aaef315f23de346bfe63e77e0f04d3fbcadc370b0db21bb7abb8f8e12c40f2` are both block 47299930. `acceptOwnership` tx `0xd2e982568811c3706eec074d296ef7fa4c54838de714e1a5bfc8afc9fbb73983` is block 47300275. The escrow is linked to DisputePanel `0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb`. Canonical copy: [`deployments/base-sepolia.json`](../deployments/base-sepolia.json).
 
 `CORE_TIMELOCK` is the same account that owns the live Denylist and Vault. On chain its code is an EIP-7702 delegation, not an OpenZeppelin `TimelockController` (`schedule` / `getMinDelay` are absent). `onlyOwner` is `msg.sender == owner()`. A transaction whose sender is `CORE_TIMELOCK` is the owner call. See [`script/OPS_LIVE_DENYLIST_VAULT.md`](OPS_LIVE_DENYLIST_VAULT.md).
 
@@ -53,7 +64,7 @@ export CORE_TIMELOCK=0x10CC9474b45625ADfd05C209f2518023484878D9
 | `DENYLIST` | Live Denylist above. The script does not redeploy it. |
 | `VAULT` | Live Vault above. The script does not redeploy it. |
 | `DISPUTE_PANEL` | Live DisputePanel above. |
-| `CORE_TIMELOCK` | Immutable escrow `governance`, and the Ownable2Step pending owner. |
+| `CORE_TIMELOCK` | Immutable escrow `governance`. On the live escrow it is `owner()`; `pendingOwner` is zero. |
 | `BASE_SEPOLIA_RPC_URL` | Base Sepolia RPC. Chainid must be `84532`. |
 
 ## Escrow simulate (not live)
@@ -65,9 +76,9 @@ forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow 
 
 There is no `--broadcast` on that command. The log line is a dry run. The address printed for `BotAttestationEscrow` exists only inside that process. Do not paste it into the address book.
 
-## Escrow broadcast (Spencer only)
+## Escrow broadcast (already landed; Spencer only)
 
-Agents must not run this. Spencer runs it locally, after Gate B is seated or with the seat as the immediate next owner action.
+This broadcast already landed. Agents must not run it again. A second broadcast deploys a second escrow. Do not replace the live address.
 
 ```bash
 forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow \
@@ -77,22 +88,21 @@ forge script script/DeployBotAttestationEscrow.s.sol:DeployBotAttestationEscrow 
 
 Chain guard: chainid `1` reverts `DeployEscrow: mainnet forbidden`. Any chain other than `84532` reverts. There is no Ethereum Sepolia switch unless someone edits `ALLOWED_CHAIN_ID` on purpose. Do not.
 
-## After Spencer's escrow broadcast
+## Escrow ownership (complete)
 
-1. `CORE_TIMELOCK` calls `acceptOwnership()` on the new `BotAttestationEscrow`. Until that transaction, the deployer is still `owner()` and `createEscrow` reverts `FundingBeforeGovernance`.
-2. Do not call `createEscrow` before that accept. Do not fund the contract before that accept.
-3. Paste the **real** address and create-tx hash into `BotAttestationEscrow.address` and `BotAttestationEscrow.deployTx` in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json), and into the table in [`contracts/README.md`](../contracts/README.md). Leave the slot `null` / `_pending Spencer deploy_` until then.
-4. `setDenylist`, `setVault`, and `setDisputePanel` revert unless `owner() == governance`, and they revert while `lockedValue != 0`.
+1. `CORE_TIMELOCK` has called `acceptOwnership()` on `BotAttestationEscrow` `0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c`. `owner` is `CORE_TIMELOCK`. `pendingOwner` is the zero address. The accept tx is `0xd2e982568811c3706eec074d296ef7fa4c54838de714e1a5bfc8afc9fbb73983` (block 47300275).
+2. The address and create-tx hash are in `BotAttestationEscrow.address` and `BotAttestationEscrow.deployTx` in [`deployments/base-sepolia.json`](../deployments/base-sepolia.json) and in the table in [`contracts/README.md`](../contracts/README.md).
+3. `setDenylist`, `setVault`, and `setDisputePanel` revert unless `owner() == governance`, and they revert while `lockedValue != 0`.
 
-`acceptOwnership` is an owner-to-be call from `CORE_TIMELOCK`, same as Gate A on Denylist and Vault. It is not part of the deploy script.
+`acceptOwnership` was an owner-to-be call from `CORE_TIMELOCK`, same as Gate A on Denylist and Vault. It is not part of the deploy script. Agents do not send it again.
 
-## Gate B — seat the panel
+## Gate B — seated
 
-`openDispute` reverts `panel not seated` until `arbitratorCount >= 3`. The escrow deploy script does not appoint arbitrators. Seat them with the ops scripts below. They call the live panel only. They do not deploy a new panel.
+Gate B is seated. `arbitratorCount` is 3. The three arbitrators and seat txs are in the live-address section above. `openDispute` reverts `panel not seated` if `arbitratorCount` drops below 3. The escrow deploy script does not appoint arbitrators. The ops scripts below call the live panel only. They do not deploy a new panel. Agents do not `--broadcast` them.
 
 Same broadcast rule as [`OpsDenylist`](OpsDenylist.s.sol) / [`OpsVault`](OpsVault.s.sol): dry-run `prank`s `CORE_TIMELOCK` and does not read `PRIVATE_KEY`. `--broadcast` and `--resume` revert with `OpsLive: PRIVATE_KEY is not the live owner; Spencer only` unless that key's address is `CORE_TIMELOCK`.
 
-Spencer chooses the three arbitrator addresses. The placeholders below are not seats. Replace them before running.
+The three live seats are already on the panel. The placeholders below are for a future add or remove. They are not the seated arbitrators. Replace them before any new panel op.
 
 ```bash
 export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
@@ -201,11 +211,8 @@ Repeat for the second and third seats (`true`). A removal passes `false`. After 
 
 ## Checklist
 
-- [ ] Simulate Gate B (`OpsDisputePanelSeat`, no `--broadcast`)
-- [ ] Spencer broadcasts Gate B with the `CORE_TIMELOCK` key
-- [ ] `cast call arbitratorCount` returns at least 3
-- [ ] Simulate escrow (`DeployBotAttestationEscrow`, no `--broadcast`)
-- [ ] Spencer broadcasts escrow with the deployer key (not the timelock key)
-- [ ] `CORE_TIMELOCK` calls `acceptOwnership` on the escrow
-- [ ] Paste the real escrow address and tx into `deployments/base-sepolia.json` and `contracts/README.md`
-- [ ] Do not `createEscrow` before that accept
+- [x] Gate B seated (`arbitratorCount` is 3; seat txs in block 47299643)
+- [x] Escrow deployed (`0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c`, block 47299930)
+- [x] `CORE_TIMELOCK` `acceptOwnership` on the escrow (block 47300275; `pendingOwner` is zero)
+- [x] Real escrow address and txs are in `deployments/base-sepolia.json` and `contracts/README.md`
+- [x] Agents do not `--broadcast` and do not touch mainnet
