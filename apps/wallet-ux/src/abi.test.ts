@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
+import escrowAbi from "./abi/BotAttestationEscrow.json"
 import denylistAbi from "./abi/Denylist.json"
 import disputePanelAbi from "./abi/DisputePanel.json"
 import insuranceFundAbi from "./abi/InsuranceFund.json"
@@ -26,6 +27,9 @@ describe("forge ABIs", () => {
     }
     for (const name of ["owner", "arbitratorCount", "PANEL_SIZE"]) {
       expect(names(disputePanelAbi).has(name)).toBe(true)
+    }
+    for (const name of ["owner", "pendingOwner", "governance", "disputePanel", "lockedValue", "escrows", "createEscrow", "release", "refund", "dispute"]) {
+      expect(names(escrowAbi).has(name)).toBe(true)
     }
     for (const name of ["owner", "insurance"]) expect(names(liabilityAbi).has(name)).toBe(true)
     for (const name of ["owner", "liability", "balance"]) expect(names(insuranceFundAbi).has(name)).toBe(true)

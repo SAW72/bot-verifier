@@ -95,6 +95,7 @@ button.secondary {
 }
 
 button:disabled { opacity: 0.55; cursor: not-allowed; }
+form > button { margin: 0 8px 8px 0; }
 
 a { color: #1e4d78; }
 
@@ -176,6 +177,23 @@ label { display: block; margin-bottom: 4px; }
 .result div { display: flex; gap: 12px; }
 .result dt { min-width: 12rem; color: var(--muted); }
 .result dd { margin: 0; }
+
+.preview { margin: 12px 0; }
+.calldata {
+  overflow: auto;
+  background: #f6f3ec;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.glossary { margin: 0; }
+.glossary div { margin: 8px 0; }
+.glossary dt { font-weight: 600; }
+.glossary dd { margin: 0; color: var(--muted); }
 
 footer { color: var(--muted); font-size: 0.92rem; }
 

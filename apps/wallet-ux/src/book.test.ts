@@ -22,7 +22,7 @@ describe("deployment book", () => {
     expect(ADDRESSES.disputePanel).toBe(CANONICAL.disputePanel)
     expect(ADDRESSES.liability).toBe(CANONICAL.liability)
     expect(ADDRESSES.insuranceFund).toBe(CANONICAL.insuranceFund)
-    expect(ADDRESSES.botAttestationEscrow).toBeNull()
+    expect(ADDRESSES.botAttestationEscrow).toBe("0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c")
     expect(ADDRESSES.bvt).toBeNull()
     expect(JSON.stringify(ADDRESSES).toLowerCase()).not.toContain(SUPERSEDED.denylist.toLowerCase())
     expect(JSON.stringify(ADDRESSES).toLowerCase()).not.toContain(SUPERSEDED.vault.toLowerCase())

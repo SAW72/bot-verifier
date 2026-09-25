@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi"
 import { ADDRESSES, addressBook, BASE_SEPOLIA_CHAIN_ID } from "./addresses"
 import { DenylistLookup } from "./DenylistLookup"
+import { EscrowPanel } from "./EscrowPanel"
 import { errorText, formatEth, shortAddress } from "./format"
 import { gateAOwnershipNotes, liabilityLinkNotes } from "./gate"
 import { evaluateReadGuard, resolveWalletChainId } from "./guard"
@@ -92,7 +93,11 @@ function LiveStatus({ status }: { status: GateStatus }) {
             </p>
           </div>
         ) : (
-          <p className="pill ok">Panel is seated.</p>
+          <p className="pill ok" data-testid="panel-seated">
+            Gate B seated. arbitratorCount is {status.disputePanel.arbitratorCount.toString()} and PANEL_SIZE is{" "}
+            {status.disputePanel.panelSize.toString()}. The contract does not expose an arbitrator index, so this
+            count is the seated status.
+          </p>
         )}
         <AddressRow label="Contract" value={ADDRESSES.disputePanel} />
         <AddressRow label="owner()" value={status.disputePanel.owner} />
@@ -282,17 +287,11 @@ export function App() {
         <p className="muted">Live owner and balance rows stay hidden while reads are refused.</p>
       ) : null}
 
-      <section className="card" aria-labelledby="escrow-heading">
-        <h2 id="escrow-heading">BotAttestationEscrow</h2>
-        {ADDRESSES.botAttestationEscrow == null ? (
-          <div className="empty" data-testid="escrow-empty" role="status">
-            <strong>Not deployed on Sepolia yet.</strong>
-            <p>The escrow address is null. There is no contract to read.</p>
-          </div>
-        ) : (
-          <AddressRow label="Contract" value={ADDRESSES.botAttestationEscrow} />
-        )}
-      </section>
+      <EscrowPanel
+        client={client}
+        status={guard.ok && statusQuery.data ? statusQuery.data.escrow : null}
+        readsEnabled={guard.ok}
+      />
 
       <section className="card" aria-labelledby="bvt-heading">
         <h2 id="bvt-heading">BVT stack</h2>

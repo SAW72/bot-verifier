@@ -12,6 +12,7 @@ const files = [
   ["Vault.sol/Vault.json", "Vault.json"],
   ["IVault.sol/IVault.json", "IVault.json"],
   ["DisputePanel.sol/DisputePanel.json", "DisputePanel.json"],
+  ["BotAttestationEscrow.sol/BotAttestationEscrow.json", "BotAttestationEscrow.json"],
   ["Liability.sol/Liability.json", "Liability.json"],
   ["InsuranceFund.sol/InsuranceFund.json", "InsuranceFund.json"],
 ]

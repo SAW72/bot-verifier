@@ -94,7 +94,7 @@ Core `Deploy.s.sol`, `DeployBotAttestationEscrow.s.sol`, and additive `DeployBVT
 
 ### Wallet UI (read-only, Base Sepolia)
 
-`apps/wallet-ux` connects an injected wallet and reads Gate A. It refuses every chain except Base Sepolia (84532), including Ethereum mainnet and Base mainnet. It does not send transactions.
+`apps/wallet-ux` connects an injected wallet and reads Gate A, the seated dispute panel, and live escrow. It refuses every chain except Base Sepolia (84532), including Ethereum mainnet and Base mainnet. Escrow and dispute submit stay held. It does not send transactions.
 
 ```bash
 cd apps/wallet-ux

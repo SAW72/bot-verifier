@@ -16,6 +16,7 @@ export const FALLBACK_PIN = {
   disputePanel: "0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb",
   liability: "0x554Caf5a214B8d70D675C09186C5EAE24FEB7307",
   insuranceFund: "0x19fc26B36Cb2031062eD90C19db64b3b09753ab8",
+  botAttestationEscrow: "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c",
 } as const
 
 /** Previous pair. Blocked as a read target. Not rendered and not called. */
@@ -99,7 +100,7 @@ export function fallbackBook(): AddressBook {
     disputePanel: getAddress(FALLBACK_PIN.disputePanel),
     liability: getAddress(FALLBACK_PIN.liability),
     insuranceFund: getAddress(FALLBACK_PIN.insuranceFund),
-    botAttestationEscrow: null,
+    botAttestationEscrow: getAddress(FALLBACK_PIN.botAttestationEscrow),
     bvt: null,
     bvtStaking: null,
     bvtFeeRouter: null,

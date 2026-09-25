@@ -17,8 +17,14 @@ describe.skipIf(!live)("Base Sepolia smoke", () => {
     expect(sameAddress(status.denylist.pendingOwner, ZERO_ADDRESS)).toBe(true)
     expect(sameAddress(status.vault.denylist, ADDRESSES.denylist)).toBe(true)
     expect(status.disputePanel.panelSize).toBe(3n)
-    expect(status.disputePanel.arbitratorCount).toBe(0n)
-    expect(panelNotSeated(status.disputePanel.arbitratorCount, status.disputePanel.panelSize)).toBe(true)
+    expect(status.disputePanel.arbitratorCount).toBe(3n)
+    expect(panelNotSeated(status.disputePanel.arbitratorCount, status.disputePanel.panelSize)).toBe(false)
+    expect(status.escrow).not.toBeNull()
+    expect(sameAddress(status.escrow?.owner ?? "", CORE_TIMELOCK)).toBe(true)
+    expect(sameAddress(status.escrow?.pendingOwner ?? "", ZERO_ADDRESS)).toBe(true)
+    expect(sameAddress(status.escrow?.governance ?? "", CORE_TIMELOCK)).toBe(true)
+    expect(sameAddress(status.escrow?.disputePanel ?? "", ADDRESSES.disputePanel)).toBe(true)
+    expect(status.escrow?.fundingOpen).toBe(true)
 
     const empty = `0x${"00".repeat(32)}` as const
     const membership = await readMembership(client, empty)
