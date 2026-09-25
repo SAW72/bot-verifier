@@ -1,0 +1,223 @@
+import http from "node:http";
+import { timingSafeEqual } from "node:crypto";
+import { healthPayload, httpError } from "./config.mjs";
+import { KILL_SWITCH } from "./killSwitch.mjs";
+import { buildFixtureClaim, buildFixtureQuote, refuseLiveSubmit, wantsLiveSubmit } from "./claims.mjs";
+
+const MAX_BODY = 32 * 1024;
+
+function secretsEqual(provided, expected) {
+  const a = Buffer.from(String(provided || ""), "utf8");
+  const b = Buffer.from(String(expected || ""), "utf8");
+  if (!expected || a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+export function adminAuthorized(req, adminSecret) {
+  if (!adminSecret) return false;
+  const header = req.headers["x-admin-secret"] || "";
+  const auth = String(req.headers.authorization || "");
+  const bearer = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+  return secretsEqual(header, adminSecret) || secretsEqual(bearer, adminSecret);
+}
+
+export function createCors(allowedOrigins) {
+  const allowed = new Set(
+    (Array.isArray(allowedOrigins) ? allowedOrigins : String(allowedOrigins || "").split(","))
+      .map((origin) => origin.trim().replace(/\/$/, ""))
+      .filter(Boolean),
+  );
+  return function corsHeaders(req) {
+    const headers = {
+      "access-control-allow-headers": "content-type,x-admin-secret,authorization",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+      vary: "Origin",
+    };
+    const origin = req.headers.origin;
+    const normalized = origin ? String(origin).replace(/\/$/, "") : "";
+    if (normalized && allowed.has(normalized)) headers["access-control-allow-origin"] = origin;
+    return headers;
+  };
+}
+
+function sendJson(res, req, status, body, corsHeaders) {
+  const payload = JSON.stringify(body);
+  res.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "content-length": Buffer.byteLength(payload),
+    ...corsHeaders(req),
+  });
+  res.end(payload);
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY) {
+        reject(httpError(413, "payload_too_large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks).toString("utf8");
+      if (!raw) return resolve({});
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          reject(httpError(400, "invalid_json"));
+          return;
+        }
+        resolve(parsed);
+      } catch {
+        reject(httpError(400, "invalid_json"));
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function errorBody(err) {
+  const body = {
+    ok: false,
+    error: err.error || "request_failed",
+  };
+  if (err.reason) body.reason = err.reason;
+  if (err.field) body.field = err.field;
+  if (err.chainId !== undefined) body.chainId = err.chainId;
+  if (err.mode) body.mode = err.mode;
+  if (Object.prototype.hasOwnProperty.call(err, "txHash")) body.txHash = err.txHash;
+  return body;
+}
+
+/**
+ * HTTP control plane. Fixture quotes and claims only.
+ * @param {object} deps
+ * @param {ReturnType<import('./config.mjs').loadConfig>} deps.config
+ * @param {{ isOn: Function, engage: Function, release: Function }} deps.killSwitch
+ * @param {{ reserve: Function }} deps.nonceStore
+ * @param {{ append: Function }} deps.claimLog
+ * @param {() => number} [deps.now]
+ */
+export function createClaimRelayer(deps) {
+  const config = deps.config;
+  const killSwitch = deps.killSwitch;
+  const nonceStore = deps.nonceStore;
+  const claimLog = deps.claimLog;
+  const now = deps.now || Date.now;
+  const corsHeaders = createCors(config.corsOrigins);
+
+  function refuseIfKilled(res, req) {
+    if (!killSwitch.isOn()) return false;
+    sendJson(res, req, 503, { ok: false, error: KILL_SWITCH }, corsHeaders);
+    return true;
+  }
+
+  return http.createServer(async (req, res) => {
+    try {
+      if (req.method === "OPTIONS") {
+        res.writeHead(204, corsHeaders(req));
+        res.end();
+        return;
+      }
+      const url = new URL(req.url || "/", "http://127.0.0.1");
+      const path = url.pathname.replace(/\/+$/, "") || "/";
+
+      if (req.method === "GET" && (path === "/health" || path === "/v1/health")) {
+        sendJson(res, req, 200, healthPayload(config, killSwitch.isOn()), corsHeaders);
+        return;
+      }
+
+      if (req.method === "POST" && (path === "/v1/admin/pause" || path === "/v1/admin/unpause")) {
+        if (!config.adminSecret) {
+          sendJson(
+            res,
+            req,
+            200,
+            {
+              ok: true,
+              noop: true,
+              killSwitch: killSwitch.isOn(),
+              docs: "ADMIN_SECRET is unset. Pause and unpause do not change the kill switch. Set ADMIN_SECRET to gate those routes. KILL_SWITCH=1 still starts the process paused.",
+            },
+            corsHeaders,
+          );
+          return;
+        }
+        if (!adminAuthorized(req, config.adminSecret)) {
+          sendJson(res, req, 401, { ok: false, error: "unauthorized" }, corsHeaders);
+          return;
+        }
+        if (path.endsWith("/pause")) killSwitch.engage();
+        else killSwitch.release();
+        await claimLog.append({
+          event: path.endsWith("/pause") ? "kill_switch_on" : "kill_switch_off",
+          killSwitch: killSwitch.isOn(),
+          chainId: config.chainId,
+        });
+        sendJson(res, req, 200, { ok: true, killSwitch: killSwitch.isOn(), noop: false }, corsHeaders);
+        return;
+      }
+
+      if (req.method === "POST" && path === "/v1/claims/quote") {
+        if (refuseIfKilled(res, req)) return;
+        const body = await readBody(req);
+        if (wantsLiveSubmit(body)) {
+          refuseLiveSubmit();
+        }
+        const quote = await buildFixtureQuote({ body, config, nonceStore, now });
+        await claimLog.append({ event: "quote", ...quote, ok: true });
+        sendJson(res, req, 200, quote, corsHeaders);
+        return;
+      }
+
+      if (req.method === "POST" && path === "/v1/claims") {
+        if (refuseIfKilled(res, req)) return;
+        const body = await readBody(req);
+        if (wantsLiveSubmit(body)) {
+          // TODO(Builder): call todoEscrowCalldata() only after ESCROW_ADDRESS is booked
+          // and Spencer sets SPENCER_RUN_AUTH=1. This scaffold has no send path.
+          refuseLiveSubmit();
+        }
+        const result = buildFixtureClaim(body);
+        await claimLog.append({
+          event: "claim_fixture",
+          ...result,
+          payer: body.payer,
+          payee: body.payee,
+          amountWei: body.amountWei,
+          chainId: config.chainId,
+          escrowBooked: config.escrowBooked,
+          relayerAddress: config.relayerAddress,
+        });
+        sendJson(res, req, 200, result, corsHeaders);
+        return;
+      }
+
+      sendJson(res, req, 404, { ok: false, error: "not_found" }, corsHeaders);
+    } catch (err) {
+      const status = Number(err.status) || 500;
+      const body = errorBody(status === 500 ? { error: "request_failed" } : err);
+      if (status === 500) {
+        console.error("claim_relayer_error", err instanceof Error ? err.message : "internal");
+      }
+      try {
+        await claimLog.append({
+          event: "claim_error",
+          error: body.error,
+          reason: body.reason,
+          status,
+          chainId: config.chainId,
+        });
+      } catch {
+        /* logging must not hide the response */
+      }
+      if (!res.headersSent) sendJson(res, req, status, body, corsHeaders);
+    }
+  });
+}

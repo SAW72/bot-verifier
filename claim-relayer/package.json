@@ -1,0 +1,13 @@
+{
+  "name": "bot-verifier-claim-relayer",
+  "private": true,
+  "type": "module",
+  "description": "Base Sepolia claim-flow relayer scaffold. Fixture / dry-run only. No live chain writes.",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
