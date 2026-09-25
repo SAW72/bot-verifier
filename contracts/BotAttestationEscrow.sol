@@ -169,11 +169,16 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         return escrowId;
     }
 
-    /// @notice Release funds to the payee after mutual attestation checks pass.
-    /// @dev Both bots must be active in the Vault, not denylisted, and hold Financial+ tier.
+    /// @notice Release funds to the payee recorded at create time.
+    /// @dev Open (non-disputed) release fails closed: both bots must still be active in
+    ///      the Vault, not denylisted, Financial+ tier, and bound to the operators stored
+    ///      on the escrow (`_verifyBot` and `_requireBoundOperators`).
     ///      A disputed escrow can release only if the panel upheld the original deal.
-    ///      That upheld path stays open after `expiresAt`: expiry must not strand the payee
-    ///      or let `refund` pay the payer once the panel has ruled the deal stands.
+    ///      That upheld path stays open after `expiresAt` and skips re-attestation and
+    ///      operator rebinding by design. The panel already ruled the deal stands, and
+    ///      `refund` is closed, so a later denylist hit, burn, tier drop, or operator
+    ///      rotation must not strand the locked ETH. Payment is `e.payee` from create,
+    ///      not whatever address currently operates the payee bot.
     function release(bytes32 escrowId) external nonReentrant {
         Escrow storage e = escrows[escrowId];
         bool panelUpheld = false;
@@ -186,9 +191,14 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         // Open escrows expire. An upheld dispute does not: release remains the payee path.
         if (!panelUpheld && block.timestamp > e.expiresAt) revert EscrowExpired();
 
-        _requireBoundOperators(e);
-        _verifyBot(e.payerBotId, "payer");
-        _verifyBot(e.payeeBotId, "payee");
+        // Post-ruling attestation and operator checks can both fail after an uphold
+        // while refund is already closed. Pay the create-time payee without re-checking.
+        // Open deals still fail closed.
+        if (!panelUpheld) {
+            _requireBoundOperators(e);
+            _verifyBot(e.payerBotId, "payer");
+            _verifyBot(e.payeeBotId, "payee");
+        }
 
         e.state = EscrowState.Released;
         (bool ok, ) = e.payee.call{value: e.amount}("");
