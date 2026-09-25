@@ -33,6 +33,19 @@ contract DenylistTest is Test {
         assertTrue(d.everListed(Denylist.Bucket.Exact, WEIGHT));
     }
 
+    function test_checkEmitsNothing() public {
+        vm.recordLogs();
+        Denylist.MatchLevel clean = d.check(WEIGHT, SIG, PROMPT);
+        assertEq(uint256(clean), uint256(Denylist.MatchLevel.None));
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        d.addPrompt(PROMPT);
+        vm.recordLogs();
+        Denylist.MatchLevel blocked = d.check(WEIGHT, SIG, PROMPT);
+        assertEq(uint256(blocked), uint256(Denylist.MatchLevel.PromptBlock));
+        assertEq(vm.getRecordedLogs().length, 0);
+    }
+
     function test_addRejectsZeroId() public {
         vm.expectRevert(Denylist.ZeroId.selector);
         d.addExact(bytes32(0));
