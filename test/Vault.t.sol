@@ -40,18 +40,40 @@ contract VaultTest is Test {
 
     function test_registerRejectsEveryDenylistMatchLevel() public {
         denylist.addExact(WEIGHT);
+        assertEq(uint256(denylist.check(WEIGHT, SIG, PROMPT)), uint256(Denylist.MatchLevel.ExactBlock));
         vm.expectRevert(bytes("bot is denylisted"));
         vault.register(keccak256("exact"), WEIGHT, SIG, PROMPT, Vault.Tier.Chat);
 
         bytes32 sig = keccak256("blocked-sig");
         denylist.addSignature(sig);
+        assertEq(
+            uint256(denylist.check(keccak256("clean-w"), sig, PROMPT)), uint256(Denylist.MatchLevel.SignatureBlock)
+        );
         vm.expectRevert(bytes("bot is denylisted"));
         vault.register(keccak256("sig"), keccak256("clean-w"), sig, PROMPT, Vault.Tier.DataTools);
 
         bytes32 prompt = keccak256("blocked-prompt");
         denylist.addPrompt(prompt);
+        assertEq(
+            uint256(denylist.check(keccak256("clean-w2"), keccak256("clean-s"), prompt)),
+            uint256(Denylist.MatchLevel.PromptBlock)
+        );
         vm.expectRevert(bytes("bot is denylisted"));
         vault.register(keccak256("prompt"), keccak256("clean-w2"), keccak256("clean-s"), prompt, Vault.Tier.Financial);
+    }
+
+    function test_promptUnbanLetsRegisterSucceedAndKeepsHistory() public {
+        denylist.addPrompt(PROMPT);
+        vm.expectRevert(bytes("bot is denylisted"));
+        vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Chat);
+
+        denylist.remove(PROMPT, Denylist.Bucket.Prompt);
+        assertEq(uint256(denylist.check(WEIGHT, SIG, PROMPT)), uint256(Denylist.MatchLevel.None));
+        assertTrue(denylist.everListed(Denylist.Bucket.Prompt, PROMPT));
+
+        vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Chat);
+        (,,,, bool active,) = vault.bots(BOT);
+        assertTrue(active);
     }
 
     function test_registerCleanBotAndBindOperator() public {

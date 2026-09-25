@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: MIT
 // Trusted-bot vault with capability tiers and irreversible burn.
-// Not audited. For illustration and local testing.
+// Unaudited. Production-bound Base Sepolia code, not an illustration.
+// Live ownership: deployments/base-sepolia.json. This file does not redeploy it.
 pragma solidity ^0.8.20;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-
-interface IDenylist {
-    enum MatchLevel { None, PromptReview, SignatureBlock, ExactBlock }
-    function check(bytes32, bytes32, bytes32) external view returns (MatchLevel);
-}
+import { IDenylist } from "./Denylist.sol";
 
 contract Vault is Ownable2Step {
     IDenylist public denylist;
 
-    enum Tier { None, Chat, DataTools, Financial, Critical }
+    enum Tier {
+        None,
+        Chat,
+        DataTools,
+        Financial,
+        Critical
+    }
 
     struct BotRecord {
         bytes32 weightHash;
@@ -34,7 +37,9 @@ contract Vault is Ownable2Step {
     event AccessGranted(bytes32 indexed botId, Tier tier, uint256 ts);
     event OperatorSet(bytes32 indexed botId, address indexed account);
 
-    constructor(address _denylist) Ownable(msg.sender) {
+    constructor(
+        address _denylist
+    ) Ownable(msg.sender) {
         denylist = IDenylist(_denylist);
         tierMaxPermissions[Tier.Chat] = 1;
         tierMaxPermissions[Tier.DataTools] = 2;
@@ -67,7 +72,10 @@ contract Vault is Ownable2Step {
     }
 
     /// @notice Bind (or rotate) the EOA/contract allowed to act as this bot.
-    function setOperator(bytes32 botId, address account) external onlyOwner {
+    function setOperator(
+        bytes32 botId,
+        address account
+    ) external onlyOwner {
         require(bots[botId].registeredAt != 0, "unknown bot");
         _setOperator(botId, account);
     }
@@ -80,6 +88,7 @@ contract Vault is Ownable2Step {
         Tier tier
     ) internal {
         require(bots[botId].registeredAt == 0, "already registered");
+        // PromptBlock, SignatureBlock, and ExactBlock all fail closed. None is the only pass.
         IDenylist.MatchLevel level = denylist.check(weightHash, behaviorSig, promptHash);
         require(level == IDenylist.MatchLevel.None, "bot is denylisted");
         bots[botId] = BotRecord({
@@ -93,21 +102,29 @@ contract Vault is Ownable2Step {
         emit Registered(botId, tier, block.timestamp);
     }
 
-    function _setOperator(bytes32 botId, address account) internal {
+    function _setOperator(
+        bytes32 botId,
+        address account
+    ) internal {
         require(account != address(0), "zero operator");
         operator[botId] = account;
         emit OperatorSet(botId, account);
     }
 
     /// @notice Grant access up to the bot's tier cap.
-    function grantAccess(bytes32 botId, uint8 requestedPerms) external view returns (bool) {
+    function grantAccess(
+        bytes32 botId,
+        uint8 requestedPerms
+    ) external view returns (bool) {
         BotRecord storage b = bots[botId];
         require(b.active, "bot not active");
         return requestedPerms <= tierMaxPermissions[b.tier];
     }
 
     /// @notice Irreversible burn. No override, no timelock, no multisig can revive.
-    function burn(bytes32 botId) external onlyOwner {
+    function burn(
+        bytes32 botId
+    ) external onlyOwner {
         require(bots[botId].active, "not active");
         bots[botId].active = false;
         // Intentionally no denylist write here — caller should invoke Denylist.add*

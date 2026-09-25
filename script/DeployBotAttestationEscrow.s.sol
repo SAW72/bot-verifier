@@ -7,7 +7,11 @@ import { BotAttestationEscrow } from "../contracts/BotAttestationEscrow.sol";
 /// @notice Additive deploy of BotAttestationEscrow against an existing core stack.
 /// Does not redeploy Denylist / Vault / DisputePanel — pass their addresses via env.
 /// After deploy: `transferOwnership(CORE_TIMELOCK)` (Ownable2Step; timelock must
-/// `acceptOwnership`). Owner may later `setDenylist` / `setVault` / `setDisputePanel`.
+/// `acceptOwnership`). `governance` is that same timelock, passed into the constructor.
+/// `createEscrow` and `setDenylist` revert until the timelock has accepted, and
+/// `setDenylist` also reverts while ETH is locked (`lockedValue != 0`).
+/// Denylist swaps are timelock events (`DenylistUpdated`). Do not fund before accept.
+/// There is no production EOA admin for `setDenylist`.
 /// Chainid guard: Base Sepolia (84532) only. Mainnet is always refused.
 /// ETH Sepolia (11155111) is documented as a one-line switch — do not enable it
 /// here unless you intentionally change ALLOWED_CHAIN_ID.
@@ -27,18 +31,28 @@ contract DeployBotAttestationEscrow is Script {
         }
     }
 
-    function requireTimelock(address deployer, address timelock) public pure {
+    function requireTimelock(
+        address deployer,
+        address timelock
+    ) public pure {
         if (timelock == address(0)) revert("DeployEscrow: CORE_TIMELOCK unset");
         if (timelock == deployer) revert("DeployEscrow: CORE_TIMELOCK must not be deployer");
     }
 
-    function requireDeps(address denylist, address vault, address panel) public pure {
+    function requireDeps(
+        address denylist,
+        address vault,
+        address panel
+    ) public pure {
         if (denylist == address(0)) revert("DeployEscrow: DENYLIST unset");
         if (vault == address(0)) revert("DeployEscrow: VAULT unset");
         if (panel == address(0)) revert("DeployEscrow: DISPUTE_PANEL unset");
     }
 
-    function readAddress(string memory key, string memory unsetErr) public view returns (address a) {
+    function readAddress(
+        string memory key,
+        string memory unsetErr
+    ) public view returns (address a) {
         try vm.envAddress(key) returns (address set) {
             a = set;
         } catch {
@@ -48,12 +62,14 @@ contract DeployBotAttestationEscrow is Script {
     }
 
     /// @notice Deploy + hand ownership to timelock. Used by `run` and by tests (no broadcast).
-    function deploy(address denylist, address vault, address panel, address timelock)
-        public
-        returns (BotAttestationEscrow escrow)
-    {
+    function deploy(
+        address denylist,
+        address vault,
+        address panel,
+        address timelock
+    ) public returns (BotAttestationEscrow escrow) {
         requireDeps(denylist, vault, panel);
-        escrow = new BotAttestationEscrow(denylist, vault, panel);
+        escrow = new BotAttestationEscrow(denylist, vault, panel, timelock);
         escrow.transferOwnership(timelock);
     }
 

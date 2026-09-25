@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Denylist} from "../contracts/Denylist.sol";
-import {Vault} from "../contracts/Vault.sol";
-import {InsuranceFund} from "../contracts/InsuranceFund.sol";
-import {Liability} from "../contracts/Liability.sol";
-import {DisputePanel} from "../contracts/DisputePanel.sol";
-import {Deploy} from "../script/Deploy.s.sol";
+import { Test } from "forge-std/Test.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Denylist } from "../contracts/Denylist.sol";
+import { Vault } from "../contracts/Vault.sol";
+import { InsuranceFund } from "../contracts/InsuranceFund.sol";
+import { Liability } from "../contracts/Liability.sol";
+import { DisputePanel } from "../contracts/DisputePanel.sol";
+import { Deploy } from "../script/Deploy.s.sol";
 
 contract SmokeTest is Test {
     Denylist internal denylist;
@@ -48,16 +48,31 @@ contract SmokeTest is Test {
         assertEq(uint256(level), uint256(Denylist.MatchLevel.ExactBlock));
     }
 
-    function test_denylistRemoveAlwaysReverts() public {
-        vm.expectRevert(bytes("denylist is irreversible"));
-        denylist.remove(bytes32(uint256(1)));
+    function test_denylistUnbanClearsCheckAndKeepsHistory() public {
+        bytes32 weight = keccak256("weight");
+        denylist.addExact(weight);
+        denylist.remove(weight, Denylist.Bucket.Exact);
+        assertFalse(denylist.denylistedHashes(weight));
+        assertEq(uint256(denylist.check(weight, bytes32(0), bytes32(0))), uint256(Denylist.MatchLevel.None));
+        assertTrue(denylist.everListed(Denylist.Bucket.Exact, weight));
     }
 
-    function testFuzz_addExactIrreversible(bytes32 h) public {
+    function testFuzz_addRemovePreservesHistory(
+        bytes32 h
+    ) public {
+        if (h == bytes32(0)) {
+            vm.expectRevert(Denylist.ZeroId.selector);
+            denylist.addExact(h);
+            return;
+        }
         denylist.addExact(h);
         assertTrue(denylist.denylistedHashes(h));
-        vm.expectRevert(bytes("already denylisted"));
+        vm.expectRevert(abi.encodeWithSelector(Denylist.AlreadyListed.selector, Denylist.Bucket.Exact, h));
         denylist.addExact(h);
+        denylist.remove(h, Denylist.Bucket.Exact);
+        assertFalse(denylist.denylistedHashes(h));
+        assertTrue(denylist.everListed(Denylist.Bucket.Exact, h));
+        assertEq(uint256(denylist.check(h, bytes32(0), bytes32(0))), uint256(Denylist.MatchLevel.None));
     }
 
     function test_vaultRegisterGrantAndBurn() public {
@@ -82,7 +97,7 @@ contract SmokeTest is Test {
     }
 
     function test_insuranceFundAndLiabilityClaim() public {
-        insurance.fund{value: 1 ether}();
+        insurance.fund{ value: 1 ether }();
         assertEq(insurance.balance(), 1 ether);
 
         bytes32 claimId = keccak256("claim");
@@ -98,21 +113,11 @@ contract SmokeTest is Test {
 
     function test_noDoubleClaimOnIncident() public {
         liability.fileClaim(
-            keccak256("c1"),
-            keccak256("bot"),
-            keccak256("inc"),
-            payable(address(this)),
-            1,
-            Liability.Party.Owner
+            keccak256("c1"), keccak256("bot"), keccak256("inc"), payable(address(this)), 1, Liability.Party.Owner
         );
         vm.expectRevert(bytes("incident already claimed"));
         liability.fileClaim(
-            keccak256("c2"),
-            keccak256("bot"),
-            keccak256("inc"),
-            payable(address(this)),
-            1,
-            Liability.Party.Owner
+            keccak256("c2"), keccak256("bot"), keccak256("inc"), payable(address(this)), 1, Liability.Party.Owner
         );
     }
 
@@ -189,7 +194,7 @@ contract SmokeTest is Test {
         insurance.setOwner(timelock);
         assertEq(insurance.owner(), timelock);
         assertEq(insurance.liability(), address(liability));
-        insurance.fund{value: 1 ether}();
+        insurance.fund{ value: 1 ether }();
         uint256 before = insurance.balance();
         vm.prank(address(0xE1E));
         vm.expectRevert(bytes("not liability"));

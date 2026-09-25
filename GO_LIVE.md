@@ -28,7 +28,7 @@ Base Sepolia (**84532**) only. Mainnet always reverts. Agents do not `--broadcas
 - [ ] **Panel seat** — `CORE_TIMELOCK` calls `DisputePanel.setArbitrator` three times. `openDispute` reverts `panel not seated` until `arbitratorCount >= 3`.
 - [ ] **(2) Escrow** — `script/DeployBotAttestationEscrow.s.sol`. Env: `DENYLIST`, `VAULT`, `DISPUTE_PANEL`, `CORE_TIMELOCK` (all required, non-zero; timelock ≠ deployer). Script `transferOwnership(CORE_TIMELOCK)`; timelock must `acceptOwnership`.
 - [ ] **(3) Optional BVT** — `script/DeployBVT.s.sol`. Env: `BVT_GUARDIAN` (required, non-zero, ≠ deployer). Optional `BVT_INSURANCE_SINK`, `BVT_TREASURY`.
-- [ ] Record addresses and deploy txs in `deployments/base-sepolia.json` (committed template; null until this step) and `contracts/README.md`
+- [ ] Record addresses and deploy txs in `deployments/base-sepolia.json` and `contracts/README.md` (core addresses are filled; escrow and BVT are still null)
 - [ ] Point the stamp API at those addresses
 - [ ] Bootstrap operators via `BVTStaking.bootstrapOperator` — not a public sale
 

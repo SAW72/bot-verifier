@@ -1,9 +1,23 @@
 # Denylist Registry
 
-Permanent on-chain blacklist of dangerous bot fingerprints.
+On-chain registry of dangerous bot fingerprints.
+
+Active listings block registration and escrow verification. The owner (CORE_TIMELOCK on the live Denylist) can clear an active listing. Clearing does not erase history: `everListed` and `listing.timesListed` stay set, and `Listed` / `Unlisted` events record who, when, bucket, and listing count.
 
 ## Purpose
-Prevent a destroyed dangerous bot from ever being recreated or re-registered.
+Stop a denounced bot from being re-registered while its fingerprint is actively listed, and keep a permanent record that it was listed.
+
+## Match levels
+`check` returns the strongest active hit:
+
+1. `ExactBlock` — weight hash
+2. `SignatureBlock` — behavioral signature
+3. `PromptBlock` — prompt hash
+4. `None` — no active listing
+
+`PromptBlock` is a hard block. It occupies the same ordinal as the old `PromptReview` name (`1`). Vault registration and escrow `_verifyBot` reject every level other than `None`. There is no advisory match level.
+
+`check` is a view. It does not emit. The audit trail is the list and unlist events, because those are the state changes.
 
 ## Components
 - denylist_contract.md
