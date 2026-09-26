@@ -1,19 +1,43 @@
-# Reference Blueprint only. This file is not at the repo root, so a merge does not
-# register a Render Blueprint. To apply it later, move it to the repo root and set
-# rootDir: claim-relayer.
+# Reference Blueprint only. This file is claim-relayer/render.yaml, not repo-root
+# render.yaml, so a merge does not register a Render Blueprint and does not create
+# a service. Do not apply until Spencer says GO.
+#
+# Apply later (Spencer GO only):
+#   (a) Move or copy this file to the repo root as render.yaml and set
+#       rootDir: claim-relayer on the service below, or
+#   (b) Create the service from this Blueprint in the Render dashboard.
+# This PR does not move the file. It stays reference-only under claim-relayer/.
+#
+# Product name is Agent A. The Render service slug stays bot-verifier-claim-relayer
+# (intentional locked name; changing it is an import-breaking path). Spencer can
+# rename the slug later in the dashboard.
+#
+# Free web service: plan free, numInstances 1, no disk, no autoscaling block.
+# Render Free spins down after about 15 minutes idle. That is OK for Base Sepolia
+# testnet. Before a mainnet upgrade, change plan to starter (about $7/mo) so the
+# relayer stays warm. The app still hard-refuses mainnet (chain ids 1 and 8453).
+# Do not set a mainnet CHAIN_ID in this file.
 #
 # Single web instance: the nonce store is in-memory and is not shared across processes.
-# Do not autoscale. The filesystem is ephemeral. Never put RELAYER_PRIVATE_KEY in git.
-# LIVE_SUBMIT and SPENCER_RUN_AUTH default to 0 (fixture mode). Set both to 1 in the
-# dashboard, with CHAIN_ID=84532, to unlock Base Sepolia claim submits. Mainnet is refused.
+# The filesystem is ephemeral. CLAIM_LOG_PATH under /tmp is lost on restart or spin-down.
+# Never put RELAYER_PRIVATE_KEY in git.
+# LIVE_SUBMIT and SPENCER_RUN_AUTH stay 0 (fixture mode). Unlock both to 1 in the
+# dashboard, with CHAIN_ID=84532, for Base Sepolia claim submits. Leave that unlock
+# out of this file. Secrets below use sync: false so dashboard values are not
+# overwritten from git.
 # Unset ESCROW_ADDRESS loads the booked escrow from deployments/base-sepolia.json.
 # This service does not deploy contracts and has no forge broadcast.
 
 services:
   - type: web
+    # Agent A product. Slug stays bot-verifier-claim-relayer unless Spencer
+    # renames it in the Render dashboard.
     name: bot-verifier-claim-relayer
     runtime: node
+    # Free spins down after ~15 min idle (OK on Base Sepolia). Use starter
+    # (~$7/mo) before mainnet so the process stays warm. Do not enable mainnet.
     plan: free
+    # One instance only. No scaling block, no disk.
     numInstances: 1
     buildCommand: npm install --omit=dev
     startCommand: npm start

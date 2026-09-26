@@ -185,7 +185,18 @@ The public funding wallet is not assumed to be a Vault operator. A live `createE
 
 ## Render
 
-See `render.yaml` in this directory. It is a reference Blueprint, not registered at the repo root. One web service, one instance, `HOST=0.0.0.0`. The Blueprint leaves `LIVE_SUBMIT=0` and `SPENCER_RUN_AUTH=0`. To unlock Sepolia submits in the Render dashboard, set:
+See `render.yaml` in this directory. It is a reference Blueprint, not registered at the repo root, so merging it does not create a Render service. Do not apply it until Spencer says GO.
+
+**Apply path (either one, later):**
+
+1. Move or copy this file to the repo root as `render.yaml` and set `rootDir: claim-relayer` on the service.
+2. Create the service from this Blueprint in the Render dashboard.
+
+This copy stays under `claim-relayer/` until Spencer asks to move it. Product name is Agent A. The Render service slug stays `bot-verifier-claim-relayer` unless Spencer renames it in the dashboard.
+
+Free plan, one web instance (`numInstances: 1`), no disk, no autoscaling. Render Free spins down after about 15 minutes idle, which is fine for Base Sepolia. Before mainnet, upgrade the plan to Starter (about $7/month) so the relayer stays warm. The app still refuses mainnet; do not set a mainnet chain id in the Blueprint.
+
+`HOST=0.0.0.0`. `LIVE_SUBMIT` and `SPENCER_RUN_AUTH` stay `0` in the Blueprint. To unlock Sepolia submits later in the Render dashboard, set:
 
 ```
 LIVE_SUBMIT=1
