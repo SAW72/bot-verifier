@@ -1,15 +1,16 @@
 /**
  * Frontend address book for Base Sepolia (chain id 84532) only.
  *
- * Live slots come from deployments/base-sepolia.json. `npm run dev`, `npm test`,
- * and `npm run build` copy that file to src/generated/base-sepolia.json so Vite
- * can bundle it with the Pages root directory set to apps/wallet-ux. The
- * corrected Gate A pin is the fallback when that file is missing or fails
- * validation. The superseded Denylist (0xF0f2…) and Vault (0xa1a0…) are never
- * read targets. There is no mainnet book.
+ * Live slots come from src/base-sepolia.json, a copy of
+ * deployments/base-sepolia.json kept inside this app so a Pages build with
+ * root directory apps/wallet-ux does not import a parent path. `npm run dev`
+ * and `npm run build` refresh the copy when the repo-root book is visible.
+ * The corrected Gate A pin is the fallback when that file fails validation.
+ * The superseded Denylist (0xF0f2…) and Vault (0xa1a0…) are never read targets.
+ * There is no mainnet book.
  */
 
-import deploymentBook from "./generated/base-sepolia.json"
+import deploymentBook from "./base-sepolia.json"
 import {
   BASE_SEPOLIA_CHAIN_ID,
   FALLBACK_PIN,

@@ -7,7 +7,7 @@
     "dev": "node scripts/sync-book.mjs && vite",
     "build": "node scripts/sync-book.mjs && tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node scripts/sync-book.mjs && vitest run",
+    "test": "vitest run",
     "sync-abis": "node scripts/sync-abis.mjs",
     "sync-book": "node scripts/sync-book.mjs"
   },

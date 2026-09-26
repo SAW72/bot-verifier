@@ -15,29 +15,45 @@ Set these in the Cloudflare dashboard when the project is created. [`wrangler.to
 | Root directory | `apps/wallet-ux` |
 | Build command | `npm ci && npm run build` |
 | Build output directory | `dist` |
-| Node.js | `22.16.0` (`.node-version` in this directory; Pages v3 default; CI uses Node 22) |
+| Node.js | `22` (`.node-version` in this directory; same major as CI) |
 
 `pages_build_output_dir = "./dist"` matches the Vite `dist` output. Once the Pages project uses this Wrangler file, that output directory is the source of truth. Leave the framework preset unset so it does not replace the build command.
+
+Node 22 on the Pages v3 image is 22.16.0, which satisfies Vite (`>=22.12.0`). `NODE_VERSION=22` is the dashboard form of the same pin.
+
+### SPA
+
+[`public/_redirects`](public/_redirects) is:
+
+```
+/* /index.html 200
+```
+
+Vite copies that file to `dist/_redirects`. The app is one page today. Keep this rule if client routes are added later so those paths serve `index.html`.
 
 ## Environment variables
 
 Set variables for **Production** and **Preview**. Vite inlines `VITE_*` during `npm run build`, so a Pages variable has to be present for the build, not only in the browser afterward.
 
-| Variable | Required | Value |
-| --- | --- | --- |
-| `SKIP_DEPENDENCY_INSTALL` | Yes | `1`. Stops Pages from running its own `npm install` before the build command. `npm ci` is the install. |
-| `VITE_BASE_SEPOLIA_RPC_URL` | No | Base Sepolia HTTP endpoint. Leave unset to use `https://sepolia.base.org`. The app calls `eth_chainId` and accepts only `84532`. |
-| `NODE_VERSION` | No | Optional override. `.node-version` already pins `22.16.0`. |
+| Variable | Go-live value |
+| --- | --- |
+| `VITE_BASE_SEPOLIA_RPC_URL` | Optional. Leave unset to use `https://sepolia.base.org`. Any URL must answer `eth_chainId` with `84532`. |
+| `VITE_CLAIM_RELAYER_URL` | Leave unset. The wallet does not call the relayer at go-live. |
+| `SKIP_DEPENDENCY_INSTALL` | `1`. Pages would otherwise run its own `npm install` before the build command. `npm ci` is the install. |
 
-The default public RPC needs no secret. If a custom URL contains an API key, store `VITE_BASE_SEPOLIA_RPC_URL` as an encrypted build variable. Pages has no wallet private key, relayer key, `LIVE_SUBMIT`, or `SPENCER_RUN_AUTH`.
+Pages must not have `PRIVATE_KEY`, `RELAYER_PRIVATE_KEY`, `SPENCER_RUN_AUTH`, `LIVE_SUBMIT`, or `ADMIN_SECRET`. Those belong to Foundry or the Render claim relayer, not this static app.
 
 `BASE_SEPOLIA_RPC_URL` at the repo root is for Foundry and the claim relayer. This app does not read it.
 
+Later, if the browser calls the Render relayer, that service needs CORS for the Pages origin (`https://agent-a-wallet-ux.pages.dev` or the custom domain). Do not turn that on for this go-live.
+
 ## Address book
 
-`npm run dev`, `npm test`, and `npm run build` copy [`deployments/base-sepolia.json`](../../deployments/base-sepolia.json) to `src/generated/base-sepolia.json` before Vite starts. That file is gitignored. Vite imports it from inside `apps/wallet-ux`. Pages checks out the whole Git repository and runs the build in that root directory, so the script can still read the canonical book one level above the app. The copy script refuses a book whose `chainId` is not `84532` or whose `network` is not `base-sepolia`.
+The app imports [`src/base-sepolia.json`](src/base-sepolia.json). That file is a copy of [`deployments/base-sepolia.json`](../../deployments/base-sepolia.json) committed inside `apps/wallet-ux`. Vite does not import `../../../deployments/base-sepolia.json`, so a Pages root of `apps/wallet-ux` can build when the parent directory is not on the build path.
 
-`src/book.ts` `FALLBACK_PIN` matches the live book. The app uses the pin only when the copied JSON is missing or fails validation. Superseded Denylist and Vault addresses stay blocked.
+`npm run dev` and `npm run build` run `scripts/sync-book.mjs`. When the repo-root book is visible, the script refreshes `src/base-sepolia.json`. When it is not visible, the script keeps the committed copy. Either way the book must be Base Sepolia (`chainId` 84532, `network` `base-sepolia`). After a book change in the full repo, run `npm run sync-book` and commit `src/base-sepolia.json`. `npm test` fails if the two files differ.
+
+`src/book.ts` `FALLBACK_PIN` matches the live book. The app uses the pin only when the copied JSON fails validation. Superseded Denylist and Vault addresses stay blocked.
 
 Live slots:
 
@@ -51,19 +67,19 @@ Live slots:
 
 ## Go-live checklist
 
-1. Create a Pages project named `agent-a-wallet-ux` connected to `SAW72/AGENT-A`.
+1. Create a Pages project named `agent-a-wallet-ux` connected to `SAW72/AGENT-A`. Create it only on Spencer GO.
 2. Production branch: `main`.
 3. Root directory: `apps/wallet-ux`.
 4. Build command: `npm ci && npm run build`.
 5. Output directory: `dist` (also `pages_build_output_dir` in `wrangler.toml`).
-6. Build image v3, Node `22.16.0` from `.node-version`.
-7. Production and Preview: `SKIP_DEPENDENCY_INSTALL=1`. Leave `VITE_BASE_SEPOLIA_RPC_URL` unset unless the public `https://sepolia.base.org` endpoint should be replaced with another Base Sepolia URL (`eth_chainId` `84532`).
-8. Secrets: none for the public RPC. No private keys and no relayer unlock flags.
-9. Hostname: `agent-a-wallet-ux.pages.dev` until a custom domain is added in the dashboard (DNS plus the Pages custom domain). This repo does not attach a domain.
-10. Build log includes `Copied deployments/base-sepolia.json -> src/generated/base-sepolia.json (chainId 84532)`. The published app stays on Base Sepolia.
-11. Leave claim-relayer on Render (`bot-verifier-claim-relayer`).
+6. Node `22` (`.node-version` or `NODE_VERSION=22`).
+7. SPA: `/* /index.html 200` is already in `public/_redirects` for routes added later.
+8. Env: optional `VITE_BASE_SEPOLIA_RPC_URL` only (default `https://sepolia.base.org`, chain id `84532`). Leave `VITE_CLAIM_RELAYER_URL` unset. Set `SKIP_DEPENDENCY_INSTALL=1`.
+9. Do not set `PRIVATE_KEY`, `RELAYER_PRIVATE_KEY`, `SPENCER_RUN_AUTH`, `LIVE_SUBMIT`, or `ADMIN_SECRET` on Pages.
+10. Hostname: `agent-a-wallet-ux.pages.dev` until a custom domain is added in the dashboard. This repo does not attach a domain.
+11. Leave claim-relayer on Render (`bot-verifier-claim-relayer`). Add CORS on that service later if the wallet starts calling it.
 
-Optional build watch paths: `apps/wallet-ux/**` and `deployments/base-sepolia.json`. A watch list that omits the deployment book will skip a publish when only addresses change.
+Optional build watch paths: `apps/wallet-ux/**` and `deployments/base-sepolia.json`. A watch list that omits the deployment book will skip a publish when only the canonical addresses change, until `src/base-sepolia.json` is updated in this directory.
 
 ## Local check
 

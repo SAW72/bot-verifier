@@ -1,5 +1,8 @@
+import { existsSync, readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
-import deploymentBook from "./generated/base-sepolia.json"
+import deploymentBook from "./base-sepolia.json"
 import { ADDRESSES, addressBook } from "./addresses"
 import { FALLBACK_PIN, fallbackBook, resolveAddressBook, SUPERSEDED } from "./book"
 
@@ -12,7 +15,21 @@ const CANONICAL = {
   insuranceFund: "0x19fc26B36Cb2031062eD90C19db64b3b09753ab8",
 } as const
 
+const canonicalPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "deployments",
+  "base-sepolia.json",
+)
+
 describe("deployment book", () => {
+  it("keeps src/base-sepolia.json equal to deployments/base-sepolia.json", () => {
+    expect(existsSync(canonicalPath)).toBe(true)
+    expect(deploymentBook).toEqual(JSON.parse(readFileSync(canonicalPath, "utf8")))
+  })
+
   it("reads the canonical live slots and ignores superseded", () => {
     expect(addressBook.source).toBe("deployments/base-sepolia.json")
     expect(addressBook.chainId).toBe(84532)

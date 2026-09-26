@@ -6,8 +6,8 @@ import react from "@vitejs/plugin-react"
 const port = Number(process.env.PORT) || 5173
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
 
-// The address book is copied into src/generated before Vite starts
-// (scripts/sync-book.mjs). The dev server may still read the repo root.
+// Address book import is src/base-sepolia.json (inside this app).
+// scripts/sync-book.mjs refreshes it from the repo root when that file is visible.
 
 export default defineConfig({
   plugins: [react()],
