@@ -9,6 +9,8 @@ import { loadAddressBook, DEFAULT_ADDRESS_BOOK } from "./addressBook.mjs";
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 export const DEFAULT_RELAYER_ADDRESS = "0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861";
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+/** Booked BotAttestationEscrow on Base Sepolia. Live submit refuses every other target. */
+export const BOOKED_SEPOLIA_ESCROW = "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c";
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const MAINNET_CHAIN_IDS = new Set([1, 8453]);
@@ -35,24 +37,35 @@ export function httpError(status, error, extra = {}) {
   return Object.assign(new Error(error), { status, error, ...extra });
 }
 
+function sameAddress(left, right) {
+  return String(left || "").toLowerCase() === String(right || "").toLowerCase();
+}
+
 /**
- * Live submit stays blocked in this scaffold.
- * A later build may broadcast only when LIVE_SUBMIT=1, ESCROW_ADDRESS is booked,
- * and Spencer sets SPENCER_RUN_AUTH=1. This function never returns allowed=true.
+ * Live submit is allowed only when every gate passes:
+ * chain id 84532, LIVE_SUBMIT=1, SPENCER_RUN_AUTH=1, and the booked Sepolia escrow.
+ * Chain ids 1 and 8453 never pass. This function does not read a key or open an RPC.
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} env
+ * @param {boolean | { escrowBooked?: boolean, escrowAddress?: string | null, chainId?: number }} escrow
  */
-export function liveSubmitStatus(env, escrowBooked) {
+export function liveSubmitStatus(env, escrow = {}) {
+  const booked = typeof escrow === "boolean" ? { escrowBooked: escrow } : escrow || {};
+  const chainId = Number(booked.chainId === undefined ? BASE_SEPOLIA_CHAIN_ID : booked.chainId);
   const requested = parseEnvFlag(env.LIVE_SUBMIT);
   const spencerAuth = parseEnvFlag(env.SPENCER_RUN_AUTH);
-  const blockers = ["scaffold_never_broadcasts", "encode_only_no_broadcast"];
-  if (escrowBooked) blockers.push("escrow_booked");
-  else blockers.push("escrow_not_booked");
+  const blockers = [];
+  if (MAINNET_CHAIN_IDS.has(chainId)) blockers.push("mainnet_refused");
+  else if (!Number.isInteger(chainId) || chainId !== BASE_SEPOLIA_CHAIN_ID) blockers.push("wrong_chain");
+  if (!booked.escrowBooked) blockers.push("escrow_not_booked");
+  else if (!sameAddress(booked.escrowAddress, BOOKED_SEPOLIA_ESCROW)) blockers.push("escrow_not_booked_sepolia");
   if (!spencerAuth) blockers.push("spencer_run_auth_required");
   if (!requested) blockers.push("live_submit_off");
+  const allowed = blockers.length === 0;
   return {
     requested,
-    allowed: false,
+    allowed,
     spencerAuth,
-    error: "live_submit_blocked",
+    error: allowed ? null : "live_submit_blocked",
     blockers,
   };
 }
@@ -133,26 +146,31 @@ export function loadConfig(env = process.env) {
     killSwitchInitial: parseEnvFlag(env.KILL_SWITCH),
     claimLogPath: String(env.CLAIM_LOG_PATH || "./data/claims.jsonl"),
     quoteTtlMs,
-    liveSubmit: liveSubmitStatus(env, escrow.escrowBooked),
+    liveSubmit: liveSubmitStatus(env, {
+      escrowBooked: escrow.escrowBooked,
+      escrowAddress: escrow.escrowAddress,
+      chainId: BASE_SEPOLIA_CHAIN_ID,
+    }),
     corsOrigins: env.CORS_ORIGINS || "http://localhost:5173,http://127.0.0.1:5173",
   };
 }
 
 export function healthPayload(config, killSwitchOn) {
+  const live = Boolean(config.liveSubmit?.allowed);
   return {
     ok: true,
     chainId: config.chainId,
     network: config.network,
     killSwitch: Boolean(killSwitchOn),
-    mode: "fixture",
-    stub: true,
-    fixture: true,
+    mode: live ? "live" : "fixture",
+    stub: !live,
+    fixture: !live,
     escrowBooked: config.escrowBooked,
     escrowAddress: config.escrowAddress,
     escrowSource: config.escrowSource,
     relayerAddress: config.relayerAddress,
-    liveSubmit: false,
-    liveSubmitRequested: config.liveSubmit.requested,
-    liveSubmitBlockers: config.liveSubmit.blockers,
+    liveSubmit: live,
+    liveSubmitRequested: Boolean(config.liveSubmit?.requested),
+    liveSubmitBlockers: config.liveSubmit?.blockers ?? [],
   };
 }

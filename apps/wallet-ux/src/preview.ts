@@ -15,7 +15,7 @@ export type ErrorGlossaryEntry = {
   meaning: string
 }
 
-/** Contract revert strings. Preview only — nothing here is submitted. */
+/** Contract revert strings. These builders do not submit. */
 export const ERROR_GLOSSARY: readonly ErrorGlossaryEntry[] = [
   { name: "FundingBeforeGovernance", meaning: "createEscrow reverts until owner() is governance (CORE_TIMELOCK has accepted)." },
   { name: "EscrowNotOpen", meaning: "release, refund, or dispute saw a state other than the one that path allows." },

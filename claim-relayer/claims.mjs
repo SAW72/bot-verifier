@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { BASE_SEPOLIA_CHAIN_ID, ZERO_ADDRESS, httpError, isAddress } from "./config.mjs";
 import { encodeEscrowAction } from "./escrowCalldata.mjs";
+import { withClaimRetry } from "./retry.mjs";
 
 const CLAIM_ID_RE = /^(?:fixture-[0-9a-f]{8,32}|0x[0-9a-fA-F]{64}|[A-Za-z0-9:_-]{1,80})$/;
 
@@ -46,7 +47,7 @@ export function parseClaimId(value, { generate = false } = {}) {
   return claimId;
 }
 
-/** Client asked for a real transaction. This scaffold always refuses. */
+/** Client asked for a real transaction (`live`, `liveSubmit`, or `mode` live/broadcast). */
 export function wantsLiveSubmit(body) {
   if (!body || typeof body !== "object") return false;
   const mode = String(body.mode || "").trim().toLowerCase();
@@ -54,9 +55,28 @@ export function wantsLiveSubmit(body) {
 }
 
 export function refusalReason(config) {
-  if (!config?.escrowBooked) return "escrow_not_booked";
-  if (!config.liveSubmit?.spencerAuth) return "escrow_booked_spencer_run_auth_required";
-  return "scaffold_never_broadcasts";
+  const blockers = config?.liveSubmit?.blockers || [];
+  if (blockers.includes("mainnet_refused")) return "mainnet_refused";
+  if (blockers.includes("wrong_chain")) return "wrong_chain";
+  if (!config?.escrowBooked || blockers.includes("escrow_not_booked")) return "escrow_not_booked";
+  if (blockers.includes("escrow_not_booked_sepolia")) return "escrow_not_booked_sepolia";
+  if (!config?.liveSubmit?.spencerAuth || blockers.includes("spencer_run_auth_required")) {
+    return "escrow_booked_spencer_run_auth_required";
+  }
+  if (!config?.liveSubmit?.requested || blockers.includes("live_submit_off")) return "live_submit_off";
+  if (config?.liveSubmit?.allowed) return null;
+  return blockers[0] || "live_submit_blocked";
+}
+
+/** Permission note for the address that will sign. Never claims the funding wallet is a Vault operator. */
+export function senderNoteFor(action) {
+  if (action === "createEscrow") {
+    return "createEscrow is signed by the relayer key. It succeeds only when that address is the payer Vault operator. This service does not treat the funding wallet as that operator.";
+  }
+  if (action === "dispute") {
+    return "dispute() succeeds only when the relayer signer is the payer or the payee.";
+  }
+  return "release and refund are permissionless. The relayer signer sends this transaction.";
 }
 
 export function liveSubmitError(config) {
@@ -135,10 +155,88 @@ export function buildFixtureClaim(body, config) {
     mode: "fixture",
     claimId,
     txHash: null,
-    reason: refusalReason(config),
+    reason: config.liveSubmit?.allowed ? "dry_run" : refusalReason(config),
     dryRun: true,
     escrowBooked: Boolean(config.escrowBooked),
     escrowAddress: config.escrowAddress,
     ...describeCalldata(body),
+  };
+}
+
+/**
+ * Sign and submit one encoded escrow action on Base Sepolia.
+ * The caller must already have decided that live submit is allowed.
+ * @param {object} args
+ * @param {object} args.body
+ * @param {ReturnType<import('./config.mjs').loadConfig>} args.config
+ * @param {{ send: (tx: object) => Promise<{ txHash?: string }> } | null | undefined} args.broadcaster
+ */
+export async function submitLiveClaim({ body, config, broadcaster }) {
+  assertBaseSepolia(body);
+  if (!config?.liveSubmit?.allowed) throw liveSubmitError(config);
+  const encoded = describeCalldata(body);
+  if (encoded.calldataStatus !== "encoded" || !encoded.calldata) {
+    throw httpError(400, "action_required", { txHash: null, dryRun: false });
+  }
+  const claimId = parseClaimId(body.claimId);
+  const payer =
+    body.payer !== undefined && body.payer !== null && String(body.payer).trim() !== ""
+      ? requireAddress(body.payer, "payer")
+      : undefined;
+  const payee =
+    body.payee !== undefined && body.payee !== null && String(body.payee).trim() !== ""
+      ? requireAddress(body.payee, "payee")
+      : undefined;
+  if (payer && payee && payer.toLowerCase() === payee.toLowerCase()) {
+    throw httpError(400, "invalid_parties");
+  }
+
+  const tx = {
+    chainId: BASE_SEPOLIA_CHAIN_ID,
+    to: config.escrowAddress,
+    data: encoded.calldata,
+    valueWei: encoded.valueWei,
+    action: encoded.action,
+  };
+
+  let sent;
+  try {
+    if (!broadcaster || typeof broadcaster.send !== "function") {
+      throw httpError(503, "relayer_key_missing", { txHash: null, dryRun: false });
+    }
+    sent = await withClaimRetry(() => broadcaster.send(tx), { log: () => {} });
+  } catch (err) {
+    const wrapped = err?.status ? err : httpError(502, "broadcast_failed", { txHash: null, dryRun: false });
+    wrapped.senderConstraint = encoded.senderConstraint;
+    wrapped.senderNote = senderNoteFor(encoded.action);
+    wrapped.action = encoded.action;
+    wrapped.txHash = null;
+    wrapped.dryRun = false;
+    throw wrapped;
+  }
+
+  const txHash = sent?.txHash;
+  if (typeof txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+    throw httpError(502, "broadcast_failed", {
+      txHash: null,
+      dryRun: false,
+      action: encoded.action,
+      senderConstraint: encoded.senderConstraint,
+      senderNote: senderNoteFor(encoded.action),
+    });
+  }
+
+  return {
+    ok: true,
+    mode: "live",
+    fixture: false,
+    claimId,
+    txHash,
+    dryRun: false,
+    escrowBooked: Boolean(config.escrowBooked),
+    escrowAddress: config.escrowAddress,
+    chainId: BASE_SEPOLIA_CHAIN_ID,
+    senderNote: senderNoteFor(encoded.action),
+    ...encoded,
   };
 }

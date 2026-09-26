@@ -2,7 +2,15 @@ import http from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import { healthPayload, httpError } from "./config.mjs";
 import { KILL_SWITCH } from "./killSwitch.mjs";
-import { buildFixtureClaim, buildFixtureQuote, describeCalldata, liveSubmitError, wantsLiveSubmit } from "./claims.mjs";
+import {
+  assertBaseSepolia,
+  buildFixtureClaim,
+  buildFixtureQuote,
+  describeCalldata,
+  liveSubmitError,
+  submitLiveClaim,
+  wantsLiveSubmit,
+} from "./claims.mjs";
 
 const MAX_BODY = 32 * 1024;
 
@@ -104,6 +112,8 @@ function errorBody(err) {
     "valueWei",
     "calldataStatus",
     "senderConstraint",
+    "senderNote",
+    "fixture",
   ]) {
     if (err[key] !== undefined) body[key] = err[key];
   }
@@ -116,20 +126,36 @@ function rejectLive(config, body) {
   throw err;
 }
 
+function rejectQuoteBroadcast(config, body) {
+  const err = httpError(409, "live_submit_blocked", {
+    reason: "quote_does_not_broadcast",
+    blockers: [],
+    mode: "fixture",
+    txHash: null,
+    dryRun: true,
+    escrowBooked: config.escrowBooked,
+    escrowAddress: config.escrowAddress,
+  });
+  Object.assign(err, describeCalldata(body));
+  throw err;
+}
+
 /**
- * HTTP control plane. Fixture quotes and claims only.
+ * HTTP control plane. Quotes stay dry-run. Claims broadcast only when live submit is allowed.
  * @param {object} deps
  * @param {ReturnType<import('./config.mjs').loadConfig>} deps.config
  * @param {{ isOn: Function, engage: Function, release: Function }} deps.killSwitch
  * @param {{ reserve: Function }} deps.nonceStore
  * @param {{ append: Function }} deps.claimLog
  * @param {() => number} [deps.now]
+ * @param {{ send: Function } | null} [deps.broadcaster]
  */
 export function createClaimRelayer(deps) {
   const config = deps.config;
   const killSwitch = deps.killSwitch;
   const nonceStore = deps.nonceStore;
   const claimLog = deps.claimLog;
+  const broadcaster = deps.broadcaster || null;
   const now = deps.now || Date.now;
   const corsHeaders = createCors(config.corsOrigins);
 
@@ -188,7 +214,11 @@ export function createClaimRelayer(deps) {
       if (req.method === "POST" && path === "/v1/claims/quote") {
         if (refuseIfKilled(res, req)) return;
         const body = await readBody(req);
-        if (wantsLiveSubmit(body)) rejectLive(config, body);
+        assertBaseSepolia(body);
+        if (wantsLiveSubmit(body)) {
+          if (!config.liveSubmit.allowed) rejectLive(config, body);
+          rejectQuoteBroadcast(config, body);
+        }
         const quote = await buildFixtureQuote({ body, config, nonceStore, now });
         await claimLog.append({ event: "quote", ...quote, ok: true });
         sendJson(res, req, 200, quote, corsHeaders);
@@ -198,7 +228,23 @@ export function createClaimRelayer(deps) {
       if (req.method === "POST" && path === "/v1/claims") {
         if (refuseIfKilled(res, req)) return;
         const body = await readBody(req);
-        if (wantsLiveSubmit(body)) rejectLive(config, body);
+        assertBaseSepolia(body);
+        if (wantsLiveSubmit(body)) {
+          if (!config.liveSubmit.allowed) rejectLive(config, body);
+          const result = await submitLiveClaim({ body, config, broadcaster });
+          await claimLog.append({
+            event: "claim_live",
+            ...result,
+            payer: body.payer,
+            payee: body.payee,
+            amountWei: body.amountWei,
+            chainId: config.chainId,
+            escrowBooked: config.escrowBooked,
+            relayerAddress: config.relayerAddress,
+          });
+          sendJson(res, req, 200, result, corsHeaders);
+          return;
+        }
         const result = buildFixtureClaim(body, config);
         await claimLog.append({
           event: "claim_fixture",
@@ -218,8 +264,8 @@ export function createClaimRelayer(deps) {
     } catch (err) {
       const status = Number(err.status) || 500;
       const body = errorBody(status === 500 ? { error: "request_failed" } : err);
-      if (status === 500) {
-        console.error("claim_relayer_error", err instanceof Error ? err.message : "internal");
+      if (status === 500 || status === 502) {
+        console.error("claim_relayer_error", err.error || "request_failed");
       }
       try {
         await claimLog.append({

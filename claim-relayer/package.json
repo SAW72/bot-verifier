@@ -2,7 +2,7 @@
   "name": "bot-verifier-claim-relayer",
   "private": true,
   "type": "module",
-  "description": "Base Sepolia claim-flow relayer scaffold. Fixture / dry-run only. No live chain writes.",
+  "description": "Base Sepolia claim-flow relayer. Fixture by default. Live submit only on chain 84532 when Spencer unlocks it.",
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test test/*.test.mjs",
@@ -12,6 +12,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@noble/hashes": "^1.8.0"
+    "@noble/hashes": "^1.8.0",
+    "viem": "^2.56.9"
   }
 }

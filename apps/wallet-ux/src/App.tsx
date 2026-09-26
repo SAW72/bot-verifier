@@ -177,7 +177,7 @@ export function App() {
     <div className="wrap">
       <header>
         <h1>Bot Verifier</h1>
-        <p className="lede">Base Sepolia only · chain id {BASE_SEPOLIA_CHAIN_ID} · read-only</p>
+        <p className="lede">Base Sepolia only · chain id {BASE_SEPOLIA_CHAIN_ID}</p>
       </header>
 
       <section className="card" aria-labelledby="connection-heading">
@@ -302,8 +302,9 @@ export function App() {
 
       <footer>
         <p>
-          Experimental read-only view of Base Sepolia. Not a certification or an insurance product. This page does
-          not send transactions, sign claims, or open disputes.
+          Experimental Base Sepolia view. Not a certification or an insurance product. Escrow and dispute calls can be
+          submitted from a connected Base Sepolia wallet. Ethereum mainnet and Base mainnet are refused. This page
+          does not sign EIP-712 claims.
         </p>
       </footer>
     </div>

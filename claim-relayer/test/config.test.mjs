@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_RELAYER_ADDRESS, liveSubmitStatus, loadConfig } from "../config.mjs";
+import { BOOKED_SEPOLIA_ESCROW, DEFAULT_RELAYER_ADDRESS, liveSubmitStatus, loadConfig } from "../config.mjs";
 
 const SECRET = "0x" + "ab".repeat(32);
 
@@ -20,9 +20,7 @@ describe("config gates", () => {
     assert.equal(config.coreTimelock, "0x10CC9474b45625ADfd05C209f2518023484878D9");
     assert.equal(config.bvtAddress, null);
     assert.equal(config.liveSubmit.allowed, false);
-    assert.ok(config.liveSubmit.blockers.includes("escrow_booked"));
-    assert.ok(config.liveSubmit.blockers.includes("spencer_run_auth_required"));
-    assert.ok(config.liveSubmit.blockers.includes("scaffold_never_broadcasts"));
+    assert.deepEqual(config.liveSubmit.blockers, ["spencer_run_auth_required", "live_submit_off"]);
     assert.equal(JSON.stringify(config).includes(SECRET), false);
     assert.equal(Object.hasOwn(config, "RELAYER_PRIVATE_KEY"), false);
   });
@@ -40,9 +38,26 @@ describe("config gates", () => {
     assert.equal(booked.liveSubmit.allowed, false);
     assert.equal(booked.liveSubmit.requested, true);
     assert.equal(booked.liveSubmit.spencerAuth, true);
-    assert.ok(booked.liveSubmit.blockers.includes("scaffold_never_broadcasts"));
-    assert.ok(booked.liveSubmit.blockers.includes("escrow_booked"));
-    assert.equal(booked.liveSubmit.blockers.includes("spencer_run_auth_required"), false);
+    assert.deepEqual(booked.liveSubmit.blockers, ["escrow_not_booked_sepolia"]);
+  });
+
+  it("allows live submit only for the booked Base Sepolia escrow", async () => {
+    const unlocked = loadConfig({ LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" });
+    assert.equal(unlocked.chainId, 84532);
+    assert.equal(unlocked.escrowAddress, BOOKED_SEPOLIA_ESCROW);
+    assert.equal(unlocked.liveSubmit.allowed, true);
+    assert.deepEqual(unlocked.liveSubmit.blockers, []);
+    assert.equal(JSON.stringify(unlocked).includes(SECRET), false);
+    const book = JSON.parse(await readFile(new URL("../../deployments/base-sepolia.json", import.meta.url), "utf8"));
+    assert.equal(book.chainId, 84532);
+    assert.equal(book.BotAttestationEscrow.address, BOOKED_SEPOLIA_ESCROW);
+
+    const explicit = liveSubmitStatus(
+      { LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" },
+      { escrowBooked: true, escrowAddress: BOOKED_SEPOLIA_ESCROW, chainId: 84532 },
+    );
+    assert.equal(explicit.allowed, true);
+    assert.equal(explicit.error, null);
   });
 
   it("refuses a mainnet address book", async () => {
@@ -53,24 +68,37 @@ describe("config gates", () => {
   });
 
   it("refuses mainnet and every other chain", () => {
-    assert.equal(loadConfigThrows({ CHAIN_ID: "1" }), "mainnet_refused");
-    assert.equal(loadConfigThrows({ CHAIN_ID: "8453" }), "mainnet_refused");
+    assert.equal(loadConfigThrows({ CHAIN_ID: "1", LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" }), "mainnet_refused");
+    assert.equal(loadConfigThrows({ CHAIN_ID: "8453", LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" }), "mainnet_refused");
     assert.equal(loadConfigThrows({ CHAIN_ID: "11155111" }), "wrong_chain");
     assert.equal(loadConfigThrows({ CHAIN_ID: "421614" }), "wrong_chain");
+    const mainnet = liveSubmitStatus(
+      { LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" },
+      { escrowBooked: true, escrowAddress: BOOKED_SEPOLIA_ESCROW, chainId: 8453 },
+    );
+    assert.equal(mainnet.allowed, false);
+    assert.ok(mainnet.blockers.includes("mainnet_refused"));
+    const ethereum = liveSubmitStatus(
+      { LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" },
+      { escrowBooked: true, escrowAddress: BOOKED_SEPOLIA_ESCROW, chainId: 1 },
+    );
+    assert.equal(ethereum.allowed, false);
+    assert.ok(ethereum.blockers.includes("mainnet_refused"));
   });
 
   it("refuses a key file env", () => {
     assert.equal(loadConfigThrows({ RELAYER_PRIVATE_KEY_FILE: "/tmp/key" }), "key_file_forbidden");
   });
 
-  it("keeps live submit blocked even when every env gate is on", () => {
+  it("keeps live submit blocked when the booked address is missing", () => {
     const status = liveSubmitStatus({ LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" }, true);
     assert.equal(status.allowed, false);
     assert.equal(status.error, "live_submit_blocked");
+    assert.ok(status.blockers.includes("escrow_not_booked_sepolia"));
   });
 
-  it("does not call a transaction sender anywhere in the service", async () => {
-    const files = [
+  it("sends only from broadcast.mjs and never adds a forge broadcast", async () => {
+    const quiet = [
       "app.mjs",
       "server.mjs",
       "claims.mjs",
@@ -80,11 +108,21 @@ describe("config gates", () => {
       "addressBook.mjs",
       "readonlyEscrow.mjs",
     ];
-    for (const name of files) {
+    for (const name of quiet) {
       const text = await readFile(new URL(`../${name}`, import.meta.url), "utf8");
-      assert.equal(/writeContract|sendTransaction|eth_sendRawTransaction|signTransaction|forge script/.test(text), false, name);
+      assert.equal(text.includes("eth_sendRawTransaction"), false, name);
+      assert.equal(text.includes("forge script"), false, name);
+      assert.equal(text.includes("--broadcast"), false, name);
       assert.equal(text.includes(SECRET), false, name);
     }
+    const sender = await readFile(new URL("../broadcast.mjs", import.meta.url), "utf8");
+    assert.equal(sender.includes("eth_sendRawTransaction"), true);
+    assert.equal(sender.includes("forge script"), false);
+    assert.equal(sender.includes("--broadcast"), false);
+    assert.equal(sender.includes(SECRET), false);
+    assert.equal(sender.includes('from "viem/chains"'), true);
+    assert.equal(sender.includes("baseSepolia"), true);
+    assert.equal(/\bmainnet\b/.test(sender), false);
   });
 });
 

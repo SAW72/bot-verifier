@@ -1,8 +1,8 @@
 # Wallet UX (Base Sepolia only)
 
-Read-only Gate A status for the Bot Verifier contracts on **Base Sepolia (chain id 84532)**.
+Gate A status for the Bot Verifier contracts on **Base Sepolia (chain id 84532)**.
 
-This app connects an injected wallet (MetaMask), checks the wallet chain, and reads the live contracts through a Base Sepolia RPC. Claim and dispute forms only preview calldata. Their submit controls stay disabled until Spencer says go. Ethereum mainnet (chain id 1) and Base mainnet (chain id 8453) are refused. There is no mainnet config.
+This app connects an injected wallet (MetaMask), checks the wallet chain, and reads the live contracts through a Base Sepolia RPC. Claim and dispute forms build calldata, then the connected wallet can submit that calldata when it is on Base Sepolia. Ethereum mainnet (chain id 1) and Base mainnet (chain id 8453) are refused. There is no mainnet config.
 
 ## Run locally
 
@@ -36,7 +36,7 @@ Reads use the public endpoint `https://sepolia.base.org` unless you set `VITE_BA
 1. Connect MetaMask and switch the wallet to Base Sepolia.
 2. Denylist and Vault: `owner()` is CORE_TIMELOCK `0x10CC9474b45625ADfd05C209f2518023484878D9`, `pendingOwner()` is none, and Vault `denylist()` is the pinned Denylist `0xeE76876bECcFc1B58fC06fF4E654a517d784B224`.
 3. DisputePanel: Gate B is seated when `arbitratorCount` is at least `PANEL_SIZE` (3). Below that, the page says **panel not seated / Gate B not seated**.
-4. BotAttestationEscrow shows the book address and read-only owner, pending owner, governance, funding gate, and linked `disputePanel()`. Lookup by escrow id is a view call. Create, release, refund, openDispute, and dispute build calldata only. Submit is labeled **Held until Spencer go** and stays disabled. BVT stays **not deployed on Sepolia yet**.
+4. BotAttestationEscrow shows the book address and read-only owner, pending owner, governance, funding gate, and linked `disputePanel()`. Lookup by escrow id is a view call. Create, release, refund, openDispute, and dispute build calldata. **Submit on Base Sepolia** sends that calldata with the connected wallet (`chainId` 84532). With no wallet, or on any other chain, the control stays disabled and is labeled with the refusal. `createEscrow` still succeeds only when that wallet is the payer's Vault operator. BVT stays **not deployed on Sepolia yet**.
 5. On any other wallet network the banner blocks the page and contract reads stay off. Switch back to Base Sepolia to read again.
 
 With no wallet connected, the same contract rows still load from the pinned Base Sepolia RPC. Connecting on the wrong chain pauses those reads so they are not shown next to another network.

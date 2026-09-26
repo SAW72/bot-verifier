@@ -60,12 +60,16 @@ describe("calldata preview", () => {
   })
 })
 
-describe("submit stay held", () => {
-  it("keeps the preview submit control disabled", () => {
+describe("Base Sepolia submit", () => {
+  it("submits escrow calldata from the connected wallet on chain 84532", () => {
     const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "FlowPreview.tsx"), "utf8")
-    expect(source).toContain("Held until Spencer go")
-    expect(source).toContain("disabled")
-    expect(source).not.toContain("sendTransaction(")
+    expect(source).not.toContain("Held until Spencer go")
+    expect(source).not.toContain("held-submit")
+    expect(source).toContain("sendTransactionAsync")
+    expect(source).toContain("chainId: BASE_SEPOLIA_CHAIN_ID")
+    expect(source).toContain("evaluateEscrowSubmit")
+    expect(source).toContain("assertSubmitTarget")
     expect(source).not.toContain("writeContract(")
+    expect(source).not.toContain("wallet_sendTransaction")
   })
 })
