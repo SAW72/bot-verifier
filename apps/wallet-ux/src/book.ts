@@ -4,7 +4,7 @@ export const BASE_SEPOLIA_CHAIN_ID = 84532 as const
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const
 
 /**
- * Corrected Gate A pin. Used only when deployments/base-sepolia.json is missing
+ * Corrected Gate A pin. Used only when src/base-sepolia.json is missing
  * or fails validation. These are the live slots, never book.superseded.
  */
 export const FALLBACK_PIN = {
@@ -25,7 +25,7 @@ export const SUPERSEDED = {
   vault: "0xa1a067D2F58Ae54d4bb5Ec06d893B29E23A45CB7",
 } as const
 
-export type BookSource = "deployments/base-sepolia.json" | "fallback-pin"
+export type BookSource = "src/base-sepolia.json" | "fallback-pin"
 
 export type AddressBook = {
   source: BookSource
@@ -159,7 +159,7 @@ export function resolveAddressBook(raw: unknown): AddressBook {
   }
 
   return {
-    source: "deployments/base-sepolia.json",
+    source: "src/base-sepolia.json",
     chainId: BASE_SEPOLIA_CHAIN_ID,
     network: "base-sepolia",
     coreTimelock,

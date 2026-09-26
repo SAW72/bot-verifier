@@ -31,7 +31,7 @@ describe("deployment book", () => {
   })
 
   it("reads the canonical live slots and ignores superseded", () => {
-    expect(addressBook.source).toBe("deployments/base-sepolia.json")
+    expect(addressBook.source).toBe("src/base-sepolia.json")
     expect(addressBook.chainId).toBe(84532)
     expect(ADDRESSES.denylist).toBe(CANONICAL.denylist)
     expect(ADDRESSES.vault).toBe(CANONICAL.vault)
@@ -76,7 +76,7 @@ describe("deployment book", () => {
     next.Denylist.address = replacement
     next.Vault.denylist = replacement
     const book = resolveAddressBook(next)
-    expect(book.source).toBe("deployments/base-sepolia.json")
+    expect(book.source).toBe("src/base-sepolia.json")
     expect(book.denylist).toBe("0x0000000000000000000000000000000000000001")
     expect(book.vault).toBe(CANONICAL.vault)
   })
