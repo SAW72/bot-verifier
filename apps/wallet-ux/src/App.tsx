@@ -181,7 +181,7 @@ export function App() {
             <source srcSet="/logo.webp" type="image/webp" />
             <img src="/logo.png" alt="" width={34} height={36} />
           </picture>
-          <h1>Agent-BV — Bot Verifier</h1>
+          <h1>Agent BV — Bot Verifier</h1>
         </div>
         <p className="lede">Base Sepolia only · chain id {BASE_SEPOLIA_CHAIN_ID}</p>
       </header>
@@ -307,7 +307,7 @@ export function App() {
       <DenylistLookup client={client} enabled={guard.ok} blockedReason={blockedReason} />
 
       <footer>
-        <p>Agent-BV is a product of Steward of the King LLC, an Ohio (USA) limited liability company.</p>
+        <p>Agent BV is a product of Steward of the King LLC, an Ohio (USA) limited liability company.</p>
         <p>Base Sepolia testnet only</p>
       </footer>
     </div>
