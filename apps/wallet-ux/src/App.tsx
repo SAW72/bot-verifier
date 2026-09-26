@@ -307,7 +307,7 @@ export function App() {
       <DenylistLookup client={client} enabled={guard.ok} blockedReason={blockedReason} />
 
       <footer>
-        <p>Agent BV is a product of Steward of the King LLC, an Ohio (USA) limited liability company.</p>
+        <p>Agent B.V. is a product of Steward of the King LLC, an Ohio (USA) limited liability company.</p>
         <p>Base Sepolia testnet only</p>
       </footer>
     </div>
