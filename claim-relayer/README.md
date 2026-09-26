@@ -126,12 +126,26 @@ A claim that does not set `live: true`, `liveSubmit: true`, or `mode` to `"live"
 
 A live claim while the gate is closed returns **409** `live_submit_blocked` and `txHash: null`. A live claim while the gate is open signs with `RELAYER_PRIVATE_KEY` and returns `mode: "live"` plus the transaction hash. Quotes never broadcast. A live flag on `POST /v1/claims/quote` is **409** `quote_does_not_broadcast` once the gate is open, and the closed-gate refusal before that. `KILL_SWITCH=1` still returns **503** `kill_switch` for quote and claim before any send.
 
+### Live claim auth (`CLAIM_API_SECRET`)
+
+When `liveSubmit` is allowed, `POST /v1/claims` that sets `live: true`, `liveSubmit: true`, or `mode` to `"live"` or `"broadcast"` must present `CLAIM_API_SECRET`. This secret is separate from `ADMIN_SECRET`. Send it as `x-claim-secret` or `Authorization: Bearer <secret>`. The compare is timing-safe.
+
+- Missing or wrong secret: **401** `{ "ok": false, "error": "unauthorized" }`. Nothing is broadcast.
+- `CLAIM_API_SECRET` unset while live submit is allowed: **503** `{ "ok": false, "error": "claim_api_secret_required" }`. Fail closed. Nothing is broadcast.
+- Fixture claims (no live flag) stay unauthenticated, including when the gate is open.
+- Quotes stay dry-run and do not require the claim secret.
+
+`x-admin-secret` does not authorize a live claim. `x-claim-secret` does not authorize pause or unpause.
+
+CORS preflight allows `content-type`, `x-admin-secret`, `authorization`, and `x-claim-secret`. Set `CORS_ORIGINS` to the Wallet UX origin when that app calls this service, for example `https://agent-a-wallet-ux.pages.dev`.
+
 ## Error codes
 
 | HTTP | `error` | When |
 | --- | --- | --- |
 | 503 | `kill_switch` | Kill switch is on. Quote and claim are refused. Health stays 200. |
-| 503 | `relayer_key_missing` | Live submit is allowed, but `RELAYER_PRIVATE_KEY` is unset. Nothing is signed. |
+| 503 | `claim_api_secret_required` | Live submit is allowed and `CLAIM_API_SECRET` is unset. The live claim is refused before broadcast. |
+| 503 | `relayer_key_missing` | Live submit is allowed, the claim secret matched, but `RELAYER_PRIVATE_KEY` is unset. Nothing is signed. |
 | 502 | `broadcast_failed` | The Sepolia RPC rejected the send, or gas estimation reverted. `txHash` is null. `senderConstraint` says who the contract requires. |
 | 409 | `live_submit_blocked` | Client asked for a live transaction and the gate is closed, or asked a quote to broadcast. `reason` is `escrow_not_booked`, `escrow_not_booked_sepolia`, `escrow_booked_spencer_run_auth_required`, `live_submit_off`, or `quote_does_not_broadcast`. |
 | 400 | `action_not_claim` | `action` is not `createEscrow`, `release`, `refund`, or `dispute`. Governance setters are refused. |
@@ -145,7 +159,7 @@ A live claim while the gate is closed returns **409** `live_submit_blocked` and 
 | 400 | `invalid_amount` | `amountWei` is not a positive integer. |
 | 400 | `invalid_claim_id` | Claim id missing on submit, or an unexpected shape. |
 | 400 | `invalid_json` | Body is not a JSON object. |
-| 401 | `unauthorized` | Admin route called with the wrong `ADMIN_SECRET`. |
+| 401 | `unauthorized` | Admin route called with the wrong `ADMIN_SECRET`, or a live claim (gate open) without a matching `CLAIM_API_SECRET`. |
 | 404 | `not_found` | Unknown path. |
 
 Startup with `CHAIN_ID` other than `84532` refuses to boot (`mainnet_refused` or `wrong_chain`). `RELAYER_KEY_FILE` / `RELAYER_PRIVATE_KEY_FILE` refuse to boot. Keys stay in the environment.
@@ -205,3 +219,5 @@ CHAIN_ID=84532
 ```
 
 Put `RELAYER_PRIVATE_KEY` in the dashboard as a secret. Do not bake it into the Blueprint. `BASE_SEPOLIA_RPC_URL` must be a Base Sepolia endpoint. The process checks `eth_chainId` and refuses `1` and `8453` before `eth_sendRawTransaction`.
+
+`CLAIM_API_SECRET` is `sync: false` in the Blueprint. Set it in the dashboard before unlocking live submit. It is not `ADMIN_SECRET`. `CORS_ORIGINS` in the Blueprint includes `https://agent-a-wallet-ux.pages.dev` plus local Vite origins so Wallet UX can send `x-claim-secret`. A secret embedded in the static Pages build is only a soft deterrent.

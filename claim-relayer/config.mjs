@@ -143,6 +143,7 @@ export function loadConfig(env = process.env) {
     escrowOwner: escrow.escrowOwner,
     bvtAddress: escrow.bvtAddress,
     adminSecret: String(env.ADMIN_SECRET || "").trim(),
+    claimApiSecret: String(env.CLAIM_API_SECRET || "").trim(),
     killSwitchInitial: parseEnvFlag(env.KILL_SWITCH),
     claimLogPath: String(env.CLAIM_LOG_PATH || "./data/claims.jsonl"),
     quoteTtlMs,

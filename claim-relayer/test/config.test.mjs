@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BOOKED_SEPOLIA_ESCROW, DEFAULT_RELAYER_ADDRESS, liveSubmitStatus, loadConfig } from "../config.mjs";
+import { BOOKED_SEPOLIA_ESCROW, DEFAULT_RELAYER_ADDRESS, healthPayload, liveSubmitStatus, loadConfig } from "../config.mjs";
 
 const SECRET = "0x" + "ab".repeat(32);
 
@@ -20,6 +20,7 @@ describe("config gates", () => {
     assert.equal(config.coreTimelock, "0x10CC9474b45625ADfd05C209f2518023484878D9");
     assert.equal(config.bvtAddress, null);
     assert.equal(config.liveSubmit.allowed, false);
+    assert.equal(config.claimApiSecret, "");
     assert.deepEqual(config.liveSubmit.blockers, ["spencer_run_auth_required", "live_submit_off"]);
     assert.equal(JSON.stringify(config).includes(SECRET), false);
     assert.equal(Object.hasOwn(config, "RELAYER_PRIVATE_KEY"), false);
@@ -39,6 +40,21 @@ describe("config gates", () => {
     assert.equal(booked.liveSubmit.requested, true);
     assert.equal(booked.liveSubmit.spencerAuth, true);
     assert.deepEqual(booked.liveSubmit.blockers, ["escrow_not_booked_sepolia"]);
+  });
+
+  it("keeps CLAIM_API_SECRET off the health payload", () => {
+    const config = loadConfig({
+      LIVE_SUBMIT: "1",
+      SPENCER_RUN_AUTH: "1",
+      CLAIM_API_SECRET: "claim-health-secret",
+      ADMIN_SECRET: "admin-health-secret",
+    });
+    assert.equal(config.claimApiSecret, "claim-health-secret");
+    assert.equal(config.adminSecret, "admin-health-secret");
+    const health = JSON.stringify(healthPayload(config, false));
+    assert.equal(health.includes("claim-health-secret"), false);
+    assert.equal(health.includes("admin-health-secret"), false);
+    assert.equal(health.includes("CLAIM_API_SECRET"), false);
   });
 
   it("allows live submit only for the booked Base Sepolia escrow", async () => {
