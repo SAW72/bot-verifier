@@ -1,6 +1,6 @@
 {
-  "name": "Bot Verifier",
-  "short_name": "Bot Verifier",
+  "name": "Agent-BV — Bot Verifier",
+  "short_name": "Agent-BV",
   "icons": [
     {
       "src": "/icon-192.png",

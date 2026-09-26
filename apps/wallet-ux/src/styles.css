@@ -45,7 +45,8 @@ h1 { font-size: 1.6rem; margin: 0 0 4px; }
 .brand h1 {
   margin: 0;
   min-width: 0;
-  overflow-wrap: anywhere;
+  line-height: 1.15;
+  font-size: clamp(1.05rem, 4.8vw, 1.6rem);
 }
 
 .brand picture {
