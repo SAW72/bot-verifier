@@ -10,7 +10,9 @@ import { BotAttestationEscrow } from "../contracts/BotAttestationEscrow.sol";
 /// `acceptOwnership`). `governance` is that same timelock, passed into the constructor.
 /// `createEscrow` and `setDenylist` revert until the timelock has accepted, and
 /// `setDenylist` also reverts while ETH is locked (`lockedValue != 0`).
-/// Denylist swaps are timelock events (`DenylistUpdated`). Do not fund before accept.
+/// Denylist, vault, and panel swaps are timelock events
+/// (`DenylistUpdated`, `VaultUpdated`, `DisputePanelUpdated`: previous, new, caller, timestamp).
+/// Do not fund before accept.
 /// There is no production EOA admin for `setDenylist`.
 /// Chainid guard: Base Sepolia (84532) only. Mainnet is always refused.
 /// ETH Sepolia (11155111) is documented as a one-line switch — do not enable it

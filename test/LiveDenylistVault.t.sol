@@ -89,7 +89,7 @@ contract LiveDenylistVaultTest is Test {
         vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Chat);
         vm.stopPrank();
 
-        assertFalse(denylist.everListed(Denylist.Bucket.Exact, WEIGHT));
+        assertFalse(denylist.everListed(uint8(Denylist.Bucket.Exact), WEIGHT));
         (,,,,, uint256 registeredAt) = vault.bots(BOT);
         assertEq(registeredAt, 0);
     }
@@ -99,11 +99,11 @@ contract LiveDenylistVaultTest is Test {
         assertFalse(denylist.denylistedHashes(WEIGHT));
         assertFalse(denylist.denylistedSignatures(SIG));
         assertFalse(denylist.denylistedPrompts(PROMPT));
-        assertFalse(denylist.everListed(Denylist.Bucket.Exact, WEIGHT));
-        assertFalse(denylist.everListed(Denylist.Bucket.Signature, SIG));
-        assertFalse(denylist.everListed(Denylist.Bucket.Prompt, PROMPT));
+        assertFalse(denylist.everListed(uint8(Denylist.Bucket.Exact), WEIGHT));
+        assertFalse(denylist.everListed(uint8(Denylist.Bucket.Signature), SIG));
+        assertFalse(denylist.everListed(uint8(Denylist.Bucket.Prompt), PROMPT));
 
-        Denylist.Listing memory row = denylist.listing(Denylist.Bucket.Exact, WEIGHT);
+        Denylist.Listing memory row = denylist.listing(uint8(Denylist.Bucket.Exact), WEIGHT);
         assertFalse(row.active);
         assertEq(row.timesListed, 0);
         assertEq(row.firstListedAt, 0);
@@ -143,7 +143,7 @@ contract LiveDenylistVaultTest is Test {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, eve));
         denylist.addPrompt(PROMPT);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, eve));
-        denylist.remove(WEIGHT, Denylist.Bucket.Exact);
+        denylist.remove(WEIGHT, uint8(Denylist.Bucket.Exact));
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, eve));
         denylist.transferOwnership(eve);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, eve));
@@ -152,7 +152,7 @@ contract LiveDenylistVaultTest is Test {
 
         assertEq(denylist.owner(), CORE_TIMELOCK);
         assertEq(denylist.pendingOwner(), address(0));
-        assertFalse(denylist.everListed(Denylist.Bucket.Exact, WEIGHT));
+        assertFalse(denylist.everListed(uint8(Denylist.Bucket.Exact), WEIGHT));
     }
 
     function test_strangerCannotRegisterBurnOrSetOperator() public {
@@ -202,34 +202,34 @@ contract LiveDenylistVaultTest is Test {
 
         assertEq(uint256(denylist.check(WEIGHT, SIG, PROMPT)), uint256(Denylist.MatchLevel.ExactBlock));
         assertTrue(denylist.denylistedHashes(WEIGHT));
-        assertEq(denylist.listing(Denylist.Bucket.Exact, WEIGHT).lastListedBy, CORE_TIMELOCK);
-        assertEq(denylist.listing(Denylist.Bucket.Exact, WEIGHT).timesListed, 1);
+        assertEq(denylist.listing(uint8(Denylist.Bucket.Exact), WEIGHT).lastListedBy, CORE_TIMELOCK);
+        assertEq(denylist.listing(uint8(Denylist.Bucket.Exact), WEIGHT).timesListed, 1);
 
         vm.prank(CORE_TIMELOCK);
         vm.expectRevert(bytes("bot is denylisted"));
         vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Critical);
 
         vm.prank(CORE_TIMELOCK);
-        denylist.remove(WEIGHT, Denylist.Bucket.Exact);
+        denylist.remove(WEIGHT, uint8(Denylist.Bucket.Exact));
         assertEq(uint256(denylist.check(WEIGHT, SIG, PROMPT)), uint256(Denylist.MatchLevel.SignatureBlock));
 
         vm.prank(CORE_TIMELOCK);
-        denylist.remove(SIG, Denylist.Bucket.Signature);
+        denylist.remove(SIG, uint8(Denylist.Bucket.Signature));
         assertEq(uint256(denylist.check(WEIGHT, SIG, PROMPT)), uint256(Denylist.MatchLevel.PromptBlock));
         assertTrue(denylist.denylistedPrompts(PROMPT));
 
         vm.prank(CORE_TIMELOCK);
-        denylist.remove(PROMPT, Denylist.Bucket.Prompt);
+        denylist.remove(PROMPT, uint8(Denylist.Bucket.Prompt));
 
         assertEq(uint256(denylist.check(WEIGHT, SIG, PROMPT)), uint256(Denylist.MatchLevel.None));
         assertFalse(denylist.denylistedHashes(WEIGHT));
         assertFalse(denylist.denylistedSignatures(SIG));
         assertFalse(denylist.denylistedPrompts(PROMPT));
-        assertTrue(denylist.everListed(Denylist.Bucket.Exact, WEIGHT));
-        assertTrue(denylist.everListed(Denylist.Bucket.Signature, SIG));
-        assertTrue(denylist.everListed(Denylist.Bucket.Prompt, PROMPT));
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Exact), WEIGHT));
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Signature), SIG));
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Prompt), PROMPT));
 
-        Denylist.Listing memory cleared = denylist.listing(Denylist.Bucket.Prompt, PROMPT);
+        Denylist.Listing memory cleared = denylist.listing(uint8(Denylist.Bucket.Prompt), PROMPT);
         assertFalse(cleared.active);
         assertEq(cleared.timesListed, 1);
         assertGt(cleared.firstListedAt, 0);
@@ -240,7 +240,7 @@ contract LiveDenylistVaultTest is Test {
 
         vm.prank(CORE_TIMELOCK);
         denylist.addPrompt(PROMPT);
-        assertEq(denylist.listing(Denylist.Bucket.Prompt, PROMPT).timesListed, 2);
+        assertEq(denylist.listing(uint8(Denylist.Bucket.Prompt), PROMPT).timesListed, 2);
         assertEq(uint256(denylist.check(bytes32(0), bytes32(0), PROMPT)), uint256(Denylist.MatchLevel.PromptBlock));
 
         vm.prank(CORE_TIMELOCK);
@@ -248,9 +248,9 @@ contract LiveDenylistVaultTest is Test {
         vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Chat);
 
         vm.prank(CORE_TIMELOCK);
-        denylist.remove(PROMPT, Denylist.Bucket.Prompt);
-        assertEq(denylist.listing(Denylist.Bucket.Prompt, PROMPT).timesListed, 2);
-        assertTrue(denylist.everListed(Denylist.Bucket.Prompt, PROMPT));
+        denylist.remove(PROMPT, uint8(Denylist.Bucket.Prompt));
+        assertEq(denylist.listing(uint8(Denylist.Bucket.Prompt), PROMPT).timesListed, 2);
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Prompt), PROMPT));
 
         uint256 vaultBefore = VAULT.balance;
         uint256 denyBefore = DENYLIST.balance;
@@ -294,7 +294,7 @@ contract LiveDenylistVaultTest is Test {
         assertTrue(denylist.denylistedHashes(WEIGHT));
 
         vm.prank(CORE_TIMELOCK);
-        denylist.remove(WEIGHT, Denylist.Bucket.Exact);
+        denylist.remove(WEIGHT, uint8(Denylist.Bucket.Exact));
 
         address operator = address(0xBEEF);
         vm.prank(CORE_TIMELOCK);
@@ -330,8 +330,8 @@ contract LiveDenylistVaultTest is Test {
 
         assertEq(VAULT.balance, vaultBefore);
         assertEq(DENYLIST.balance, denyBefore);
-        assertEq(denylist.listing(Denylist.Bucket.Exact, WEIGHT).timesListed, 1);
-        assertTrue(denylist.everListed(Denylist.Bucket.Exact, WEIGHT));
+        assertEq(denylist.listing(uint8(Denylist.Bucket.Exact), WEIGHT).timesListed, 1);
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Exact), WEIGHT));
         assertEq(uint256(denylist.check(WEIGHT, bytes32(0), bytes32(0))), uint256(Denylist.MatchLevel.None));
     }
 

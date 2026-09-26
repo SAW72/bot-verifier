@@ -104,8 +104,16 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     event DenylistUpdated(
         address indexed previousDenylist, address indexed newDenylist, address indexed actor, uint256 timestamp
     );
-    event VaultUpdated(address indexed vault);
-    event DisputePanelUpdated(address indexed panel);
+    /// @notice Governance record of a vault swap. Same shape as `DenylistUpdated`.
+    /// @dev Constructor initial set uses `previousVault = address(0)`.
+    event VaultUpdated(
+        address indexed previousVault, address indexed newVault, address indexed actor, uint256 timestamp
+    );
+    /// @notice Governance record of a dispute-panel swap. Same shape as `DenylistUpdated`.
+    /// @dev Constructor initial set uses `previousPanel = address(0)`.
+    event DisputePanelUpdated(
+        address indexed previousPanel, address indexed newPanel, address indexed actor, uint256 timestamp
+    );
 
     error EscrowNotOpen();
     error EscrowExpired();
@@ -120,6 +128,8 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     error FundingBeforeGovernance();
     error DependencyChangeWhileFunded();
     error DenylistUnchanged();
+    error VaultUnchanged();
+    error DisputePanelUnchanged();
 
     /// @param _governance CORE_TIMELOCK in production. Must be non-zero and must not be the deployer.
     constructor(
@@ -151,6 +161,10 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Re-point the vault. Same authority and funded-lock as `setDenylist`.
+    /// @dev Who: `governance`, and only while that address is the Ownable2Step owner.
+    ///      When: only while `lockedValue == 0`.
+    ///      `VaultUpdated` records previous, new, caller, and timestamp.
+    ///      The same address reverts `VaultUnchanged`.
     function setVault(
         address _vault
     ) external onlyGovernance whileUnfunded {
@@ -158,6 +172,10 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Re-point the dispute panel. Same authority and funded-lock as `setDenylist`.
+    /// @dev Who: `governance`, and only while that address is the Ownable2Step owner.
+    ///      When: only while `lockedValue == 0`.
+    ///      `DisputePanelUpdated` records previous, new, caller, and timestamp.
+    ///      The same address reverts `DisputePanelUnchanged`.
     function setDisputePanel(
         address _panel
     ) external onlyGovernance whileUnfunded {
@@ -188,16 +206,20 @@ contract BotAttestationEscrow is Ownable2Step, ReentrancyGuard {
         address _vault
     ) internal {
         if (_vault == address(0)) revert ZeroAddress();
+        address previous = address(vault);
+        if (previous == _vault) revert VaultUnchanged();
         vault = IVault(_vault);
-        emit VaultUpdated(_vault);
+        emit VaultUpdated(previous, _vault, msg.sender, block.timestamp);
     }
 
     function _setDisputePanel(
         address _panel
     ) internal {
         if (_panel == address(0)) revert ZeroAddress();
+        address previous = address(disputePanel);
+        if (previous == _panel) revert DisputePanelUnchanged();
         disputePanel = IDisputePanel(_panel);
-        emit DisputePanelUpdated(_panel);
+        emit DisputePanelUpdated(previous, _panel, msg.sender, block.timestamp);
     }
 
     /// @notice Create an escrow for a bot-to-bot payment.

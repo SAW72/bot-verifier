@@ -41,8 +41,15 @@ contract ReenteringPayee {
 }
 
 contract BotAttestationEscrowTest is Test {
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event DenylistUpdated(
         address indexed previousDenylist, address indexed newDenylist, address indexed actor, uint256 timestamp
+    );
+    event VaultUpdated(
+        address indexed previousVault, address indexed newVault, address indexed actor, uint256 timestamp
+    );
+    event DisputePanelUpdated(
+        address indexed previousPanel, address indexed newPanel, address indexed actor, uint256 timestamp
     );
 
     Denylist denylist;
@@ -541,12 +548,12 @@ contract BotAttestationEscrowTest is Test {
         vm.expectRevert(abi.encodeWithSignature("AttestationFailed(string)", "payee bot denylisted"));
         escrow.release(escrowId);
 
-        denylist.remove(keccak256("p2"), Denylist.Bucket.Prompt);
+        denylist.remove(keccak256("p2"), uint8(Denylist.Bucket.Prompt));
         assertEq(
             uint256(denylist.check(keccak256("w2"), keccak256("b2"), keccak256("p2"))),
             uint256(Denylist.MatchLevel.None)
         );
-        assertTrue(denylist.everListed(Denylist.Bucket.Prompt, keccak256("p2")));
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Prompt), keccak256("p2")));
 
         vm.prank(payer);
         escrow.release(escrowId);
@@ -638,9 +645,71 @@ contract BotAttestationEscrowTest is Test {
     }
 
     function test_strangerCannotRepointDeps() public {
-        vm.prank(makeAddr("eve"));
+        address eve = makeAddr("eve");
+        vm.startPrank(eve);
         vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
         escrow.setDenylist(address(denylist));
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        escrow.setVault(address(vault));
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        escrow.setDisputePanel(address(panel));
+        vm.stopPrank();
+        assertEq(address(escrow.denylist()), address(denylist));
+        assertEq(address(escrow.vault()), address(vault));
+        assertEq(address(escrow.disputePanel()), address(panel));
+    }
+
+    function test_constructorEmitsInitialDependencyEvents() public {
+        address gov = makeAddr("gov-ctor-events");
+        vm.expectEmit(true, true, true, true);
+        emit OwnershipTransferred(address(0), address(this));
+        vm.expectEmit(true, true, true, true);
+        emit DenylistUpdated(address(0), address(denylist), address(this), block.timestamp);
+        vm.expectEmit(true, true, true, true);
+        emit VaultUpdated(address(0), address(vault), address(this), block.timestamp);
+        vm.expectEmit(true, true, true, true);
+        emit DisputePanelUpdated(address(0), address(panel), address(this), block.timestamp);
+        BotAttestationEscrow fresh = new BotAttestationEscrow(address(denylist), address(vault), address(panel), gov);
+        assertEq(fresh.governance(), gov);
+        assertEq(address(fresh.vault()), address(vault));
+        assertEq(address(fresh.disputePanel()), address(panel));
+        assertEq(fresh.lockedValue(), 0);
+    }
+
+    function test_governanceVaultAndPanelEventsWhenUnfunded() public {
+        Vault v2 = new Vault(address(denylist));
+        DisputePanel p2 = new DisputePanel();
+        uint256 ts = block.timestamp;
+
+        vm.expectEmit(true, true, true, true, address(escrow));
+        emit VaultUpdated(address(vault), address(v2), governance, ts);
+        vm.prank(governance);
+        escrow.setVault(address(v2));
+        assertEq(address(escrow.vault()), address(v2));
+
+        vm.expectEmit(true, true, true, true, address(escrow));
+        emit DisputePanelUpdated(address(panel), address(p2), governance, ts);
+        vm.prank(governance);
+        escrow.setDisputePanel(address(p2));
+        assertEq(address(escrow.disputePanel()), address(p2));
+        assertEq(escrow.governance(), governance);
+        assertEq(escrow.lockedValue(), 0);
+    }
+
+    function test_sameVaultAndPanelRevert() public {
+        vm.startPrank(governance);
+        vm.expectRevert(BotAttestationEscrow.ZeroAddress.selector);
+        escrow.setVault(address(0));
+        vm.expectRevert(BotAttestationEscrow.ZeroAddress.selector);
+        escrow.setDisputePanel(address(0));
+        vm.expectRevert(BotAttestationEscrow.VaultUnchanged.selector);
+        escrow.setVault(address(vault));
+        vm.expectRevert(BotAttestationEscrow.DisputePanelUnchanged.selector);
+        escrow.setDisputePanel(address(panel));
+        vm.stopPrank();
+        assertEq(address(escrow.vault()), address(vault));
+        assertEq(address(escrow.disputePanel()), address(panel));
+        assertEq(escrow.governance(), governance);
     }
 
     function test_setDenylistPolicy() public {
@@ -654,6 +723,12 @@ contract BotAttestationEscrowTest is Test {
         vm.prank(gov);
         vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
         fresh.setDenylist(address(other));
+        vm.prank(gov);
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        fresh.setVault(address(vault));
+        vm.prank(gov);
+        vm.expectRevert(BotAttestationEscrow.NotGovernance.selector);
+        fresh.setDisputePanel(address(panel));
 
         vm.prank(payer);
         vm.expectRevert(BotAttestationEscrow.FundingBeforeGovernance.selector);
@@ -691,6 +766,10 @@ contract BotAttestationEscrowTest is Test {
         vm.expectRevert(BotAttestationEscrow.DependencyChangeWhileFunded.selector);
         fresh.setDisputePanel(address(panel));
         vm.stopPrank();
+        assertEq(address(fresh.denylist()), address(denylist));
+        assertEq(address(fresh.vault()), address(vault));
+        assertEq(address(fresh.disputePanel()), address(panel));
+        assertEq(fresh.governance(), gov);
 
         vm.prank(payer);
         fresh.release(fundedId);
