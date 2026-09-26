@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "chainId": 84532,
+  "network": "base-sepolia",
+  "status": "live",
+  "notes": "PR #11 DeployDenylist surgical redeploy (Denylist + Vault only). Gate A is DONE: acceptOwnership is complete on both the new Denylist and the new Vault. owner is coreTimelock and pendingOwner is the zero address on both. Listing migration replay of Listed/Unlisted from the old Denylist was empty (0 Exact / 0 Signature / 0 Prompt). Previous Denylist and Vault remain on chain under superseded (old Vault still points at the old Denylist; old Denylist owner remains coreTimelock and was untouched). Liability, InsuranceFund, and DisputePanel addresses are unchanged. BotAttestationEscrow is live at 0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c. Deploy tx 0x700d9bac95e8833bd7e93721a88d689a0fb839c9e6108858c52560eae111948e and transferOwnership tx 0x00aaef315f23de346bfe63e77e0f04d3fbcadc370b0db21bb7abb8f8e12c40f2 are both block 47299930. acceptOwnership is complete (tx 0xd2e982568811c3706eec074d296ef7fa4c54838de714e1a5bfc8afc9fbb73983, block 47300275). owner is coreTimelock and pendingOwner is the zero address. Linked DisputePanel is 0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb. Gate B is seated: arbitratorCount is 3. Arbitrators: 0xD5ee9fA366C3698b34204722c635989E5197B018, 0xF4253A3a3C102Ee59e38b2AA92989C3232eDcC30, 0xB87Ed5F74276AC6172ef53fE866675093F75936E. Seat txs (block 47299643): 0xa97b518ad87489ab1d45ec4bef5e548c1d4bf3b9c940552e8cba1752fed7553c, 0xf1ad4d9221b2393863d9bc6a72c1a716cf389532d2cfa63fd4df682303ed6df6, 0xa1f8f0fb6ad78dd2d9fd9d33dabf9cde5b73195a1b292869e7d96cc985cb79a3. The BVT stack is not deployed (address null). Agents do not --broadcast. Never put secrets here. SIMULATE is not live.",
+  "coreTimelock": "0x10CC9474b45625ADfd05C209f2518023484878D9",
+  "bvtGuardian": null,
+  "Denylist": {
+    "address": "0xeE76876bECcFc1B58fC06fF4E654a517d784B224",
+    "deployTx": "0xc4f2bf7ac1b256f79aaa566db6c88973761b41ae0e510d16e49cc2c7897c0c32",
+    "transferOwnershipTx": "0xb9767bc6c2b54ff4ae805c09b401c0c5ffb0079be0a54b7925eb9dd41758443c",
+    "owner": "0x10CC9474b45625ADfd05C209f2518023484878D9",
+    "pendingOwner": "0x0000000000000000000000000000000000000000",
+    "acceptOwnership": "complete",
+    "acceptOwnershipTx": "0xc8ad34d956d802b3d0d8d032178c9b6786ead6afec1bd502158f1f603b3e3949",
+    "acceptOwnershipBlock": 47294619
+  },
+  "Vault": {
+    "address": "0x1463D664fA467FBCDA4B05443434494f05e565bc",
+    "deployTx": "0xeb0b97ac3c7abd49ffd99baef18703cb44563ff906e664d494325174ef6a8171",
+    "transferOwnershipTx": "0xd2b0aef1af321729e7361305a591ed7d8aacb2d84724968f979598e8be2d4076",
+    "denylist": "0xeE76876bECcFc1B58fC06fF4E654a517d784B224",
+    "owner": "0x10CC9474b45625ADfd05C209f2518023484878D9",
+    "pendingOwner": "0x0000000000000000000000000000000000000000",
+    "acceptOwnership": "complete",
+    "acceptOwnershipTx": "0xb2aa7515c4c9bac0bbe3403bbd0bb6b8afa72452a4d4ed9ad626fc26944df9b0",
+    "acceptOwnershipBlock": 47294624
+  },
+  "Liability": {
+    "address": "0x554Caf5a214B8d70D675C09186C5EAE24FEB7307",
+    "deployTx": "0x99865db9b9f4a6807b085cec8c50d22160025c4df09afc609fb52b9758fe6261"
+  },
+  "InsuranceFund": {
+    "address": "0x19fc26B36Cb2031062eD90C19db64b3b09753ab8",
+    "deployTx": "0xa71db2c304d8e80e4043e4d093a0c102ec619624ab0500d0bc7246dc27d3edd7"
+  },
+  "DisputePanel": {
+    "address": "0x31a92f9A25396968E14d2b55B6B0BB1482ECf1Bb",
+    "deployTx": "0x9ecd10d67054fbf9e63ad25dd1520ed809fbf94c4ab1f19ad84e81899562b77f"
+  },
+  "BotAttestationEscrow": {
+    "address": "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c",
+    "deployTx": "0x700d9bac95e8833bd7e93721a88d689a0fb839c9e6108858c52560eae111948e",
+    "transferOwnershipTx": "0x00aaef315f23de346bfe63e77e0f04d3fbcadc370b0db21bb7abb8f8e12c40f2",
+    "owner": "0x10CC9474b45625ADfd05C209f2518023484878D9",
+    "pendingOwner": "0x0000000000000000000000000000000000000000",
+    "acceptOwnership": "complete",
+    "acceptOwnershipTx": "0xd2e982568811c3706eec074d296ef7fa4c54838de714e1a5bfc8afc9fbb73983",
+    "acceptOwnershipBlock": 47300275
+  },
+  "BVT": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVTStaking": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVTFeeRouter": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVTTimelock": {
+    "address": null,
+    "deployTx": ""
+  },
+  "BVTGovernor": {
+    "address": null,
+    "deployTx": ""
+  },
+  "superseded": {
+    "reason": "PR #11 DeployDenylist replaced the live Denylist and Vault with a new pair. These contracts stay on chain. Do not delete this history. Listing migration replay of Listed/Unlisted from the old Denylist was empty (0 Exact / 0 Signature / 0 Prompt).",
+    "Denylist": {
+      "address": "0xF0f260967D377E07Bdd7840862508ddB23C012b8",
+      "deployTx": "0x739331697a228684f18a69c54d312baa7557dfcb92c7875c48fa7b2e4c84a429",
+      "status": "deprecated",
+      "supersededBy": "0xeE76876bECcFc1B58fC06fF4E654a517d784B224",
+      "owner": "0x10CC9474b45625ADfd05C209f2518023484878D9",
+      "pendingOwner": "0x0000000000000000000000000000000000000000",
+      "notes": "Still has code. Owner remains coreTimelock. Untouched by the redeploy."
+    },
+    "Vault": {
+      "address": "0xa1a067D2F58Ae54d4bb5Ec06d893B29E23A45CB7",
+      "deployTx": "0xe2524dd91b6485f1e484409610659cf3c3819ee7c0e7b5044cda5651f26a447b",
+      "status": "deprecated",
+      "supersededBy": "0x1463D664fA467FBCDA4B05443434494f05e565bc",
+      "denylist": "0xF0f260967D377E07Bdd7840862508ddB23C012b8",
+      "notes": "Still points at the superseded Denylist. Left on chain."
+    }
+  }
+}

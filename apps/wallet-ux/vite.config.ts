@@ -6,6 +6,9 @@ import react from "@vitejs/plugin-react"
 const port = Number(process.env.PORT) || 5173
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
 
+// Address book import is src/base-sepolia.json (inside this app).
+// scripts/sync-book.mjs refreshes it from the repo root when that file is visible.
+
 export default defineConfig({
   plugins: [react()],
   server: {

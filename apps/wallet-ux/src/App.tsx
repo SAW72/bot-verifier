@@ -266,8 +266,8 @@ export function App() {
       <section className="card" aria-labelledby="timelock-heading">
         <h2 id="timelock-heading">CORE_TIMELOCK</h2>
         <p className="muted" data-testid="address-source">
-          {addressBook.source === "deployments/base-sepolia.json"
-            ? "Addresses from deployments/base-sepolia.json. Superseded contracts are not read."
+          {addressBook.source === "src/base-sepolia.json"
+            ? "Addresses from src/base-sepolia.json. Superseded contracts are not read."
             : "Deployment book failed validation. Using the corrected Gate A pin."}
         </p>
         <AddressRow label="coreTimelock" value={ADDRESSES.coreTimelock} />
