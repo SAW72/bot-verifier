@@ -15,6 +15,13 @@ import {
   previewRelease,
   type CallPreview,
 } from "./preview"
+import {
+  claimBodyFromPreview,
+  postLiveClaim,
+  relayerConfigFromEnv,
+  relayerErrorText,
+  relayerSubmitAllowed,
+} from "./relayer"
 import { assertSubmitTarget, evaluateEscrowSubmit, submitControl, submitSenderNote } from "./submit"
 import { useConnectorChainId } from "./useWalletChain"
 
@@ -26,7 +33,13 @@ function SepoliaSubmit({ preview, escrow, panel }: { preview: CallPreview; escro
   const { sendTransactionAsync, isPending } = useSendTransaction()
   const [txHash, setTxHash] = useState<Hex | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const control = submitControl(decision, isPending)
+  const [relayerPending, setRelayerPending] = useState(false)
+  const relayer = relayerConfigFromEnv({
+    VITE_CLAIM_RELAYER_URL: import.meta.env.VITE_CLAIM_RELAYER_URL,
+    VITE_CLAIM_API_SECRET: import.meta.env.VITE_CLAIM_API_SECRET,
+  })
+  const relayerGate = relayerSubmitAllowed({ walletConnected: account.isConnected, walletChainId })
+  const control = submitControl(decision, isPending || relayerPending)
 
   async function onClick() {
     setSubmitError(null)
@@ -54,12 +67,56 @@ function SepoliaSubmit({ preview, escrow, panel }: { preview: CallPreview; escro
     }
   }
 
+  async function onRelayer() {
+    setSubmitError(null)
+    const gate = relayerSubmitAllowed({
+      walletConnected: account.isConnected,
+      walletChainId: account.isConnected ? resolveWalletChainId(account.chainId, connectorChainId) : null,
+    })
+    if (!gate.ok) {
+      setTxHash(null)
+      setSubmitError(gate.reason)
+      return
+    }
+    if (!relayer.url) return
+    setRelayerPending(true)
+    try {
+      const result = await postLiveClaim({
+        url: relayer.url,
+        secret: relayer.secret,
+        body: claimBodyFromPreview(preview),
+      })
+      setTxHash(result.txHash)
+    } catch (cause) {
+      setTxHash(null)
+      setSubmitError(relayerErrorText(cause))
+    } finally {
+      setRelayerPending(false)
+    }
+  }
+
   return (
     <div>
       <p>{submitSenderNote(preview.functionName)}</p>
       <button type="button" data-testid={control.testId} disabled={control.disabled} onClick={() => void onClick()}>
         {control.label}
       </button>
+      {relayer.url ? (
+        <div>
+          <p>
+            Optional claim relayer on Base Sepolia. A matching VITE_CLAIM_API_SECRET is sent as x-claim-secret. A secret
+            in this static build is a soft deterrent only, not browser security. Render CORS must allow this origin.
+          </p>
+          <button
+            type="button"
+            data-testid="relayer-submit"
+            disabled={!relayerGate.ok || relayerPending || isPending}
+            onClick={() => void onRelayer()}
+          >
+            {!relayerGate.ok ? relayerGate.reason : relayerPending ? "Submitting via claim relayer…" : "Submit via claim relayer"}
+          </button>
+        </div>
+      ) : null}
       {submitError ? (
         <p className="bad" role="alert">
           {submitError}
@@ -74,13 +131,26 @@ function SepoliaSubmit({ preview, escrow, panel }: { preview: CallPreview; escro
   )
 }
 
-function PreviewBlock({ preview, escrow, panel }: { preview: CallPreview | null; escrow: Address; panel: Address }) {
+function PreviewBlock({
+  preview,
+  escrow,
+  panel,
+  relayerConfigured,
+}: {
+  preview: CallPreview | null
+  escrow: Address
+  panel: Address
+  relayerConfigured: boolean
+}) {
   if (!preview) return null
   return (
     <div className="preview" data-testid="calldata-preview">
       <p>
         Calldata for <strong>{preview.functionName}</strong>. Submit sends it from the connected wallet on Base Sepolia
         only.
+        {relayerConfigured
+          ? " Escrow actions can also be posted live to the Base Sepolia claim relayer."
+          : ""}
       </p>
       <p className="mono">to {preview.to}</p>
       <p>value {formatEther(preview.valueWei)} ETH</p>
@@ -115,6 +185,10 @@ function Field({
 export function FlowPreview({ escrow, panel }: { escrow: Address; panel: Address }) {
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<CallPreview | null>(null)
+  const relayerConfigured = relayerConfigFromEnv({
+    VITE_CLAIM_RELAYER_URL: import.meta.env.VITE_CLAIM_RELAYER_URL,
+    VITE_CLAIM_API_SECRET: import.meta.env.VITE_CLAIM_API_SECRET,
+  }).url != null
 
   function show(next: CallPreview) {
     setError(null)
@@ -175,7 +249,7 @@ export function FlowPreview({ escrow, panel }: { escrow: Address; panel: Address
           {error}
         </p>
       ) : null}
-      <PreviewBlock preview={preview} escrow={escrow} panel={panel} />
+      <PreviewBlock preview={preview} escrow={escrow} panel={panel} relayerConfigured={relayerConfigured} />
       <h3>Revert glossary</h3>
       <dl className="glossary">
         {ERROR_GLOSSARY.map((entry) => (

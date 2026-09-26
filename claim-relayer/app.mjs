@@ -21,12 +21,22 @@ function secretsEqual(provided, expected) {
   return timingSafeEqual(a, b);
 }
 
+function bearerToken(req) {
+  const auth = String(req.headers.authorization || "");
+  return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+}
+
 export function adminAuthorized(req, adminSecret) {
   if (!adminSecret) return false;
   const header = req.headers["x-admin-secret"] || "";
-  const auth = String(req.headers.authorization || "");
-  const bearer = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
-  return secretsEqual(header, adminSecret) || secretsEqual(bearer, adminSecret);
+  return secretsEqual(header, adminSecret) || secretsEqual(bearerToken(req), adminSecret);
+}
+
+/** Live claim auth. Separate from ADMIN_SECRET. Accepts x-claim-secret or Bearer. */
+export function claimAuthorized(req, claimApiSecret) {
+  if (!claimApiSecret) return false;
+  const header = req.headers["x-claim-secret"] || "";
+  return secretsEqual(header, claimApiSecret) || secretsEqual(bearerToken(req), claimApiSecret);
 }
 
 export function createCors(allowedOrigins) {
@@ -37,7 +47,7 @@ export function createCors(allowedOrigins) {
   );
   return function corsHeaders(req) {
     const headers = {
-      "access-control-allow-headers": "content-type,x-admin-secret,authorization",
+      "access-control-allow-headers": "content-type,x-admin-secret,authorization,x-claim-secret",
       "access-control-allow-methods": "GET,POST,OPTIONS",
       vary: "Origin",
     };
@@ -231,6 +241,13 @@ export function createClaimRelayer(deps) {
         assertBaseSepolia(body);
         if (wantsLiveSubmit(body)) {
           if (!config.liveSubmit.allowed) rejectLive(config, body);
+          if (!config.claimApiSecret) {
+            throw httpError(503, "claim_api_secret_required");
+          }
+          if (!claimAuthorized(req, config.claimApiSecret)) {
+            sendJson(res, req, 401, { ok: false, error: "unauthorized" }, corsHeaders);
+            return;
+          }
           const result = await submitLiveClaim({ body, config, broadcaster });
           await claimLog.append({
             event: "claim_live",

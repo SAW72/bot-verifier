@@ -27,6 +27,12 @@
 # overwritten from git.
 # Unset ESCROW_ADDRESS loads the booked escrow from deployments/base-sepolia.json.
 # This service does not deploy contracts and has no forge broadcast.
+# CLAIM_API_SECRET is a separate shared secret for live POST /v1/claims (not ADMIN_SECRET).
+# sync: false so the dashboard value is not overwritten from git. If live submit is
+# later unlocked and this secret is empty, live claims fail closed (503).
+# CORS_ORIGINS example (Wallet UX Pages plus local Vite):
+#   https://agent-a-wallet-ux.pages.dev,http://localhost:5173,http://127.0.0.1:5173
+# The preflight allow-headers list includes x-claim-secret.
 
 services:
   - type: web
@@ -67,3 +73,7 @@ services:
         sync: false
       - key: ADMIN_SECRET
         sync: false
+      - key: CLAIM_API_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        value: "https://agent-a-wallet-ux.pages.dev,http://localhost:5173,http://127.0.0.1:5173"
