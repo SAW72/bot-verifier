@@ -4,11 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev": "node scripts/sync-book.mjs && vite",
+    "build": "node scripts/sync-book.mjs && tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "sync-abis": "node scripts/sync-abis.mjs"
+    "test": "node scripts/sync-book.mjs && vitest run",
+    "sync-abis": "node scripts/sync-abis.mjs",
+    "sync-book": "node scripts/sync-book.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.2",

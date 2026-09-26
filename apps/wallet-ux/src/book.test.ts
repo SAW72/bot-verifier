@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import deploymentBook from "../../../deployments/base-sepolia.json"
+import deploymentBook from "./generated/base-sepolia.json"
 import { ADDRESSES, addressBook } from "./addresses"
 import { FALLBACK_PIN, fallbackBook, resolveAddressBook, SUPERSEDED } from "./book"
 

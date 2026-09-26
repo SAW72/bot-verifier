@@ -19,6 +19,8 @@ npm test
 npm run build
 ```
 
+`npm run dev`, `npm test`, and `npm run build` copy `deployments/base-sepolia.json` into `src/generated/` before Vite runs. That copy is gitignored. Publishing notes: [`CLOUDFLARE_PAGES.md`](CLOUDFLARE_PAGES.md). The Pages project is not created from this repo.
+
 Optional live read (hits the public Base Sepolia RPC):
 
 ```bash
@@ -43,7 +45,7 @@ With no wallet connected, the same contract rows still load from the pinned Base
 
 ## Address book
 
-Live slots are read from [`deployments/base-sepolia.json`](../../deployments/base-sepolia.json) when the app loads. `src/book.ts` keeps the corrected Gate A pin and uses it only if that file is missing, is not chain id 84532, or points a live slot at `superseded`. Superseded addresses are never read.
+Live slots are read from [`deployments/base-sepolia.json`](../../deployments/base-sepolia.json). The app bundles the build-time copy at `src/generated/base-sepolia.json`, so a Pages build with root directory `apps/wallet-ux` resolves the book inside this package. `src/book.ts` keeps the corrected Gate A pin and uses it only if that file is missing, is not chain id 84532, or points a live slot at `superseded`. Superseded addresses are never read.
 
 Ops notes for the live pair: [`script/OPS_LIVE_DENYLIST_VAULT.md`](../../script/OPS_LIVE_DENYLIST_VAULT.md). Vault reads use the wallet ABI hook in `contracts/interfaces/IVault.sol` (`src/abi/IVault.json`).
 
