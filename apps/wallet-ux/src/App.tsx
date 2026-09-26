@@ -307,6 +307,8 @@ export function App() {
       <DenylistLookup client={client} enabled={guard.ok} blockedReason={blockedReason} />
 
       <footer>
+        <p>Base Sepolia testnet only</p>
+        <p>A product of Steward of the King LLC, an Ohio (USA) limited liability company.</p>
         <p>
           Experimental Base Sepolia view. Not a certification or an insurance product. Escrow and dispute calls can be
           submitted from a connected Base Sepolia wallet. Ethereum mainnet and Base mainnet are refused. This page
