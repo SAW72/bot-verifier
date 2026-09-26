@@ -2,6 +2,17 @@
 
 AI Bot Verifier — adversarial scenario library, scoring rubric, behavioral auditing pipeline, and on-chain attestation for detecting deceptive or harmful AI bots. Built for on-chain audit proofs.
 
+## License
+
+**Dual license:** [AGPL-3.0-only](LICENSE.AGPL-3.0) (public default) **or** a [paid commercial proprietary license](LICENSE.COMMERCIAL) from Steward of the King LLC.
+
+- No commercial Order → AGPL-3.0-only applies (including network-use source obligations).
+- Want closed / SaaS use without AGPL copyleft? → **contact Steward for a custom commercial quote** (negotiated per partner). No public price list.
+- Older commits published under MIT stay MIT for those snapshots; see [NOTICE](NOTICE).
+
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE.AGPL-3.0)
+[![Commercial available](https://img.shields.io/badge/License-Commercial-orange.svg)](LICENSE.COMMERCIAL)
+
 ## Disclaimer
 
 **Experimental informational tool only.** Bot Verifier is **not** a certification, safety guarantee, or insurance product. Scores, stamps, and denylists are point-in-time heuristics that may be wrong, gamed, or stale. TEE/attestation may be a stub. Contracts may be unaudited. Any fee-funded pool is an **experimental claims backstop — not insurance**.
