@@ -38,7 +38,7 @@ An experimental stack for testing whether an AI bot is safe, honest, and stable 
 
 ## Buildable code (runnable)
 - `pipeline/end_to_end_runner.py` — full audit runner (stub bot included).
-- `claim-relayer/` — Base Sepolia claim-flow relayer. Escrow address comes from `deployments/base-sepolia.json`. Fixture / dry-run only; no live submit.
+- `claim-relayer/` — Base Sepolia claim-flow relayer. Escrow address comes from `deployments/base-sepolia.json`. Fixture / dry-run unless `LIVE_SUBMIT=1` and `SPENCER_RUN_AUTH=1` on chain 84532. Mainnet is refused.
 - `pipeline/run_audit.sh` — one-command runner.
 - `meta_audit/meta_audit_runner.py` — re-audit the auditors.
 - `contracts/Denylist.sol`, `Vault.sol`, `Liability.sol`, `InsuranceFund.sol`, `DisputePanel.sol` — real Solidity.
@@ -92,9 +92,9 @@ export BASE_SEPOLIA_RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 
 Core `Deploy.s.sol`, `DeployBotAttestationEscrow.s.sol`, and additive `DeployBVT.s.sol` all revert on Ethereum mainnet (`chainid == 1`) and on any chain other than Base Sepolia. ETH Sepolia (`11155111`) is a documented one-line switch. Paste addresses into `deployments/base-sepolia.json` and `contracts/README.md` after deploy.
 
-### Wallet UI (read-only, Base Sepolia)
+### Wallet UI (Base Sepolia)
 
-`apps/wallet-ux` connects an injected wallet and reads Gate A, the seated dispute panel, and live escrow. It refuses every chain except Base Sepolia (84532), including Ethereum mainnet and Base mainnet. Escrow and dispute submit stay held. It does not send transactions.
+`apps/wallet-ux` connects an injected wallet and reads Gate A, the seated dispute panel, and live escrow. It refuses every chain except Base Sepolia (84532), including Ethereum mainnet and Base mainnet. Escrow and dispute calldata can be submitted from a wallet that is on Base Sepolia.
 
 ```bash
 cd apps/wallet-ux

@@ -38,13 +38,13 @@ describe("forge ABIs", () => {
 
 const FORBIDDEN = [
   "useWriteContract",
-  "useSendTransaction",
   "useSignTypedData",
   "writeContract(",
-  "sendTransaction(",
   "signTypedData(",
   "wallet_sendTransaction",
 ]
+
+const SEND_ONLY = ["useSendTransaction", "sendTransactionAsync"]
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = []
@@ -60,16 +60,22 @@ function sourceFiles(dir: string): string[] {
   return out
 }
 
-describe("read-only surface", () => {
-  it("does not call wallet write or sign methods", () => {
+describe("wallet writes", () => {
+  it("limits sends to the Base Sepolia escrow submit and keeps typed-data signing out", () => {
     const src = dirname(fileURLToPath(import.meta.url))
     const hits: string[] = []
+    const sendHits: string[] = []
     for (const path of sourceFiles(src)) {
       const text = readFileSync(path, "utf8")
       for (const token of FORBIDDEN) {
         if (text.includes(token)) hits.push(`${path} contains ${token}`)
       }
+      for (const token of SEND_ONLY) {
+        if (text.includes(token)) sendHits.push(`${path} contains ${token}`)
+      }
     }
     expect(hits).toEqual([])
+    expect(sendHits.every((hit) => hit.includes("FlowPreview.tsx"))).toBe(true)
+    expect(sendHits.length).toBeGreaterThan(0)
   })
 })

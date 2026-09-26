@@ -30,8 +30,7 @@ describe("claim relayer HTTP", () => {
       assert.equal(health.json.escrowBooked, true);
       assert.equal(health.json.escrowSource, "address_book");
       assert.equal(health.json.escrowAddress, "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c");
-      assert.ok(health.json.liveSubmitBlockers.includes("spencer_run_auth_required"));
-      assert.ok(health.json.liveSubmitBlockers.includes("scaffold_never_broadcasts"));
+      assert.deepEqual(health.json.liveSubmitBlockers, ["spencer_run_auth_required", "live_submit_off"]);
       assert.equal(health.json.relayerAddress, "0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861");
       assert.equal(health.json.liveSubmit, false);
       assert.equal(JSON.stringify(health.json).includes(SECRET), false);
@@ -136,8 +135,7 @@ describe("claim relayer HTTP", () => {
       assert.equal(live.json.error, "live_submit_blocked");
       assert.equal(live.json.txHash, null);
       assert.equal(live.json.reason, "escrow_booked_spencer_run_auth_required");
-      assert.ok(live.json.blockers.includes("scaffold_never_broadcasts"));
-      assert.ok(live.json.blockers.includes("spencer_run_auth_required"));
+      assert.deepEqual(live.json.blockers, ["spencer_run_auth_required", "live_submit_off"]);
 
       const mainnet = await request(ctx.port, "POST", "/v1/claims/quote", {
         payer: PAYER,
@@ -170,35 +168,238 @@ describe("claim relayer HTTP", () => {
     }
   });
 
-  it("stays on fixtures when escrow is booked and live submit is requested in env", async () => {
-    const ctx = await boot({
-      ESCROW_ADDRESS: "0x3333333333333333333333333333333333333333",
-      LIVE_SUBMIT: "1",
-      SPENCER_RUN_AUTH: "1",
-      RELAYER_PRIVATE_KEY: SECRET,
-    });
+  it("refuses live submit when the escrow address is not the booked Sepolia contract", async () => {
+    const sent = [];
+    const ctx = await boot(
+      {
+        ESCROW_ADDRESS: "0x3333333333333333333333333333333333333333",
+        LIVE_SUBMIT: "1",
+        SPENCER_RUN_AUTH: "1",
+        RELAYER_PRIVATE_KEY: SECRET,
+      },
+      {
+        broadcaster: {
+          async send(tx) {
+            sent.push(tx);
+            return { txHash: "0x" + "ab".repeat(32) };
+          },
+        },
+      },
+    );
     try {
       const health = await request(ctx.port, "GET", "/health");
       assert.equal(health.json.escrowBooked, true);
       assert.equal(health.json.escrowAddress, "0x3333333333333333333333333333333333333333");
       assert.equal(health.json.liveSubmit, false);
+      assert.equal(health.json.mode, "fixture");
       assert.equal(health.json.liveSubmitRequested, true);
+      assert.deepEqual(health.json.liveSubmitBlockers, ["escrow_not_booked_sepolia"]);
       assert.equal(JSON.stringify(health.json).includes(SECRET), false);
 
       const claim = await request(ctx.port, "POST", "/v1/claims", { claimId: "claim-booked", mode: "live" });
       assert.equal(claim.status, 409);
       assert.equal(claim.json.error, "live_submit_blocked");
-      assert.equal(claim.json.reason, "scaffold_never_broadcasts");
+      assert.equal(claim.json.reason, "escrow_not_booked_sepolia");
       assert.equal(claim.json.txHash, null);
-      assert.ok(claim.json.blockers.includes("scaffold_never_broadcasts"));
-      assert.equal(claim.json.blockers.includes("spencer_run_auth_required"), false);
+      assert.equal(sent.length, 0);
     } finally {
       await ctx.close();
     }
   });
+
+  it("broadcasts a Sepolia escrow action when Spencer unlocks live submit", async () => {
+    const sent = [];
+    const txHash = "0x" + "ab".repeat(32);
+    const ctx = await boot(
+      { LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1", RELAYER_PRIVATE_KEY: SECRET },
+      {
+        broadcaster: {
+          async send(tx) {
+            sent.push(tx);
+            return { txHash };
+          },
+        },
+      },
+    );
+    const escrowId = "0x" + "11".repeat(32);
+    try {
+      const health = await request(ctx.port, "GET", "/health");
+      assert.equal(health.json.liveSubmit, true);
+      assert.equal(health.json.mode, "live");
+      assert.equal(health.json.fixture, false);
+      assert.equal(health.json.stub, false);
+      assert.deepEqual(health.json.liveSubmitBlockers, []);
+      assert.equal(JSON.stringify(health.json).includes(SECRET), false);
+
+      const claim = await request(ctx.port, "POST", "/v1/claims", {
+        action: "release",
+        claimId: escrowId,
+        live: true,
+      });
+      assert.equal(claim.status, 200);
+      assert.equal(claim.json.ok, true);
+      assert.equal(claim.json.mode, "live");
+      assert.equal(claim.json.txHash, txHash);
+      assert.equal(claim.json.dryRun, false);
+      assert.equal(claim.json.fixture, false);
+      assert.equal(claim.json.senderConstraint, "permissionless");
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].chainId, 84532);
+      assert.equal(sent[0].to, "0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c");
+      assert.equal(sent[0].valueWei, "0");
+      assert.equal(JSON.stringify(claim.json).includes(SECRET), false);
+
+      const dry = await request(ctx.port, "POST", "/v1/claims", { action: "release", claimId: escrowId });
+      assert.equal(dry.status, 200);
+      assert.equal(dry.json.mode, "fixture");
+      assert.equal(dry.json.txHash, null);
+      assert.equal(dry.json.reason, "dry_run");
+      assert.equal(sent.length, 1);
+
+      const quote = await request(ctx.port, "POST", "/v1/claims/quote", {
+        payer: PAYER,
+        payee: PAYEE,
+        live: true,
+      });
+      assert.equal(quote.status, 409);
+      assert.equal(quote.json.reason, "quote_does_not_broadcast");
+      assert.equal(sent.length, 1);
+
+      const mainnet = await request(ctx.port, "POST", "/v1/claims", {
+        action: "release",
+        claimId: escrowId,
+        live: true,
+        chainId: 8453,
+      });
+      assert.equal(mainnet.status, 400);
+      assert.equal(mainnet.json.error, "mainnet_refused");
+      assert.equal(sent.length, 1);
+
+      const ethereum = await request(ctx.port, "POST", "/v1/claims", {
+        action: "release",
+        claimId: escrowId,
+        mode: "broadcast",
+        chainId: 1,
+      });
+      assert.equal(ethereum.status, 400);
+      assert.equal(ethereum.json.error, "mainnet_refused");
+      assert.equal(sent.length, 1);
+
+      const created = await request(ctx.port, "POST", "/v1/claims", {
+        action: "createEscrow",
+        claimId: "0x" + "33".repeat(32),
+        payee: PAYEE,
+        payerBotId: "0x" + "44".repeat(32),
+        payeeBotId: "0x" + "55".repeat(32),
+        durationSeconds: "3600",
+        amountWei: "1000",
+        live: true,
+      });
+      assert.equal(created.status, 200);
+      assert.equal(created.json.txHash, txHash);
+      assert.equal(created.json.valueWei, "1000");
+      assert.equal(created.json.senderConstraint, "vault_operator_must_send");
+      assert.match(created.json.senderNote, /Vault operator/);
+      assert.equal(sent.at(-1).action, "createEscrow");
+      assert.equal(sent.at(-1).valueWei, "1000");
+      assert.equal(sent.at(-1).chainId, 84532);
+
+      const log = await readFile(ctx.logPath, "utf8");
+      assert.equal(log.includes(SECRET), false);
+      assert.equal(log.includes("claim_live"), true);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  it("does not invent a tx hash when createEscrow cannot be sent", async () => {
+    const ctx = await boot(
+      { LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" },
+      {
+        broadcaster: {
+          async send() {
+            throw Object.assign(new Error("execution reverted"), {
+              status: 502,
+              error: "broadcast_failed",
+              reason: "execution reverted",
+            });
+          },
+        },
+      },
+    );
+    try {
+      const missing = await request(ctx.port, "POST", "/v1/claims", {
+        action: "release",
+        claimId: "0x" + "22".repeat(32),
+        liveSubmit: true,
+      });
+      assert.equal(missing.status, 502);
+      assert.equal(missing.json.txHash, null);
+      assert.equal(missing.json.senderConstraint, "permissionless");
+
+      const create = await request(ctx.port, "POST", "/v1/claims", {
+        action: "createEscrow",
+        claimId: "0x" + "33".repeat(32),
+        payee: PAYEE,
+        payerBotId: "0x" + "44".repeat(32),
+        payeeBotId: "0x" + "55".repeat(32),
+        durationSeconds: "3600",
+        amountWei: "1000",
+        mode: "live",
+      });
+      assert.equal(create.status, 502);
+      assert.equal(create.json.txHash, null);
+      assert.equal(create.json.senderConstraint, "vault_operator_must_send");
+      assert.match(create.json.senderNote, /Vault operator/);
+      assert.equal(JSON.stringify(create.json).includes(SECRET), false);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  it("pauses live claims with the kill switch and reports a missing signer", async () => {
+    const sent = [];
+    const paused = await boot(
+      { LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1", KILL_SWITCH: "1" },
+      {
+        broadcaster: {
+          async send(tx) {
+            sent.push(tx);
+            return { txHash: "0x" + "ab".repeat(32) };
+          },
+        },
+      },
+    );
+    try {
+      const claim = await request(paused.port, "POST", "/v1/claims", {
+        action: "refund",
+        claimId: "0x" + "66".repeat(32),
+        live: true,
+      });
+      assert.equal(claim.status, 503);
+      assert.equal(claim.json.error, "kill_switch");
+      assert.equal(sent.length, 0);
+    } finally {
+      await paused.close();
+    }
+
+    const unsigned = await boot({ LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" });
+    try {
+      const claim = await request(unsigned.port, "POST", "/v1/claims", {
+        action: "refund",
+        claimId: "0x" + "66".repeat(32),
+        live: true,
+      });
+      assert.equal(claim.status, 503);
+      assert.equal(claim.json.error, "relayer_key_missing");
+      assert.equal(claim.json.txHash, null);
+    } finally {
+      await unsigned.close();
+    }
+  });
 });
 
-async function boot(env = {}) {
+async function boot(env = {}, extra = {}) {
   const dir = await mkdtemp(join(tmpdir(), "claim-relayer-"));
   const logPath = join(dir, "claims.jsonl");
   const config = loadConfig({
@@ -212,6 +413,7 @@ async function boot(env = {}) {
     killSwitch: createKillSwitch({ initial: config.killSwitchInitial }),
     nonceStore: createNonceStore(),
     claimLog: createClaimLog({ filePath: logPath }),
+    broadcaster: extra.broadcaster ?? null,
     now: () => Date.parse("2026-09-25T19:00:00.000Z"),
   });
   server.listen(0, "127.0.0.1");

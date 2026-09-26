@@ -34,6 +34,7 @@ const ALLOWED = new Set([
   "dryRun",
   "calldataStatus",
   "senderConstraint",
+  "senderNote",
   "blockers",
 ]);
 

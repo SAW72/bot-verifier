@@ -53,7 +53,7 @@ function EscrowReads({ status }: { status: EscrowStatus }) {
       <TextRow label="Native ETH" value={formatEth(status.nativeBalanceWei)} />
       {status.fundingOpen ? (
         <p className="pill ok" data-testid="funding-gate">
-          Funding gate open: owner() is governance. createEscrow is not blocked by FundingBeforeGovernance. Submit stays held.
+          Funding gate open: owner() is governance. createEscrow is not blocked by FundingBeforeGovernance. The connected wallet still must be the payer's Vault operator.
         </p>
       ) : (
         <p className="pill bad" data-testid="funding-gate">
