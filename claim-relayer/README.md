@@ -2,7 +2,7 @@
 
 Gas and ops service for the Agent A (Agent Auditor) claim flow. Default mode is **fixtures / dry-run**. Live claim submits are unlocked only on Base Sepolia when `LIVE_SUBMIT=1` and `SPENCER_RUN_AUTH=1`. `npm run readonly` is a separate read-only check (`eth_chainId`, `eth_getCode`, `eth_call` only).
 
-Public funding wallet (address only): `0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861`.
+Public funding wallet (address only): `0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861` (`…31861`). The same EOA is booked as `claimRelayerWallet` in `deployments/base-sepolia.json`. It is not a contract. The hosted service derives it from `RELAYER_PRIVATE_KEY`. Never commit the private key.
 
 `BotAttestationEscrow` is booked in `deployments/base-sepolia.json` at `0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c`. When `ESCROW_ADDRESS` is unset, health reports `escrowBooked: true` and that address (`escrowSource: "address_book"`). BVT is still null. Set `ESCROW_ADDRESS` to the zero address to force `escrowBooked: false`.
 
