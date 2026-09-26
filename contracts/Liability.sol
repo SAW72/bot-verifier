@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Liability waterfall for bot-verifier.
+// Liability waterfall for Agent BV — Bot Verifier.
 // Owner -> Auditor -> InsuranceFund. Not audited. For illustration.
 pragma solidity ^0.8.20;
 

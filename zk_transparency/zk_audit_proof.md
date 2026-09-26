@@ -1,4 +1,4 @@
-# ZK Audit Proof
+# ZK Screening Record
 
 The auditor proves: "I ran the full suite on this bot and it scored X."
 

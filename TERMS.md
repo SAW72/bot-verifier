@@ -1,27 +1,27 @@
-# Bot Verifier — Terms of Use (MVP)
+# Agent BV — Bot Verifier — Terms of Use (MVP)
 
 **Last updated:** 2026-09-26
 
-**Operator:** [Applicant — redacted pending Spencer approval]  
+**Operator:** Steward of the King LLC  
 **Contact:** [contact redacted]
 
 These Terms of Use (the "**Terms**") are a legally binding agreement between you and the operator named above (the "**Operator**"). If you do not agree, do not use the Service.
 
-The Operator line is a **placeholder**. No public LLC, trade name, or street address is authorized for these pages until Spencer approval. Ohio appears below only as **governing law**, not as a public business address.
+Agent BV is a product of Steward of the King LLC, an Ohio (USA) limited liability company.
 
 ---
 
 ## 1. Agreement
 
-By accessing the Bot Verifier (formerly Agent A) repository, documentation, APIs, stamps, contracts, or related materials (the "**Service**"), you agree to these Terms, the **[Disclaimer](DISCLAIMER.md)**, and the **[Privacy Notice](PRIVACY.md)**. If you use the Service on behalf of an organization, you represent that you have authority to bind it.
+By accessing the Agent BV (Bot Verifier), formerly AGENT-A repository, documentation, APIs, stamps, contracts, or related materials (the "**Service**"), you agree to these Terms, the **[Disclaimer](DISCLAIMER.md)**, and the **[Privacy Notice](PRIVACY.md)**. If you use the Service on behalf of an organization, you represent that you have authority to bind it.
 
 ## 2. Operator
 
-The Service is operated on an experimental basis by **[Applicant — redacted pending Spencer approval]**. Public branding, entity name, and mailing address are intentionally omitted from this MVP pack.
+Agent BV is a product of Steward of the King LLC, an Ohio (USA) limited liability company. The Service is operated on an experimental basis by Steward of the King LLC. A mailing address is not published in this MVP pack.
 
 ## 3. The Service
 
-Bot Verifier is an **experimental AI / crypto trust-signal toolkit**. It may include adversarial scenarios, scoring, behavioral fingerprints, denylists, vault/registry designs, dispute and claims-backstop prototypes, APIs, and (where deployed) testnet smart contracts and a BVT token used for fees, auditor bonds, and governance experiments.
+Agent BV is an **experimental AI / crypto trust-signal toolkit**. It may include adversarial scenarios, scoring, behavioral fingerprints, denylists, vault/registry designs, dispute and claims-backstop prototypes, APIs, and (where deployed) testnet smart contracts and a BVT token used for fees, auditor bonds, and governance experiments.
 
 The Service is **not** a certification body, insurance product, licensed financial service, or investment offering. Features may be incomplete, stubbed, in-memory, unaudited, or testnet-only.
 
