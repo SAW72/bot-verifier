@@ -26,9 +26,9 @@ abstract contract OpsDenylistLog is OpsLive {
         bytes32 id,
         Denylist.Bucket bucket
     ) internal view {
-        Denylist.Listing memory row = denylist.listing(bucket, id);
+        Denylist.Listing memory row = denylist.listing(uint8(bucket), id);
         console.log("active", row.active);
-        console.log("everListed", denylist.everListed(bucket, id));
+        console.log("everListed", denylist.everListed(uint8(bucket), id));
         console.log("timesListed", uint256(row.timesListed));
     }
 }
@@ -89,7 +89,7 @@ contract OpsDenylistRemove is OpsDenylistLog {
         Denylist.Bucket bucket = parseBucket(readString("BUCKET", "OpsLive: BUCKET unset"));
         _logDenylist("remove", denylist, timelock, id, bucket);
         bool send = asOwner(timelock);
-        denylist.remove(id, bucket);
+        denylist.remove(id, uint8(bucket));
         finishOwner(send);
         _logRow(denylist, id, bucket);
     }

@@ -68,9 +68,9 @@ contract VaultTest is Test {
         vm.expectRevert(bytes("bot is denylisted"));
         vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Chat);
 
-        denylist.remove(PROMPT, Denylist.Bucket.Prompt);
+        denylist.remove(PROMPT, uint8(Denylist.Bucket.Prompt));
         assertEq(uint256(denylist.check(WEIGHT, SIG, PROMPT)), uint256(Denylist.MatchLevel.None));
-        assertTrue(denylist.everListed(Denylist.Bucket.Prompt, PROMPT));
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Prompt), PROMPT));
 
         vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Chat);
         (,,,, bool active,) = vault.bots(BOT);
@@ -183,20 +183,20 @@ contract VaultTest is Test {
         (,,,,, uint256 registeredAt) = vault.bots(BOT);
         assertEq(registeredAt, 0);
 
-        denylist.remove(WEIGHT, Denylist.Bucket.Exact);
+        denylist.remove(WEIGHT, uint8(Denylist.Bucket.Exact));
         vm.expectRevert(bytes("bot is denylisted"));
         vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Financial, operator);
 
-        denylist.remove(SIG, Denylist.Bucket.Signature);
+        denylist.remove(SIG, uint8(Denylist.Bucket.Signature));
         vm.expectRevert(bytes("bot is denylisted"));
         vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Financial, operator);
 
-        denylist.remove(PROMPT, Denylist.Bucket.Prompt);
+        denylist.remove(PROMPT, uint8(Denylist.Bucket.Prompt));
         assertEq(uint256(denylist.check(WEIGHT, SIG, PROMPT)), uint256(Denylist.MatchLevel.None));
-        assertTrue(denylist.everListed(Denylist.Bucket.Exact, WEIGHT));
-        assertTrue(denylist.everListed(Denylist.Bucket.Signature, SIG));
-        assertTrue(denylist.everListed(Denylist.Bucket.Prompt, PROMPT));
-        assertEq(denylist.listing(Denylist.Bucket.Prompt, PROMPT).timesListed, 1);
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Exact), WEIGHT));
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Signature), SIG));
+        assertTrue(denylist.everListed(uint8(Denylist.Bucket.Prompt), PROMPT));
+        assertEq(denylist.listing(uint8(Denylist.Bucket.Prompt), PROMPT).timesListed, 1);
 
         vault.register(BOT, WEIGHT, SIG, PROMPT, Vault.Tier.Financial, operator);
         assertEq(vault.operator(BOT), operator);

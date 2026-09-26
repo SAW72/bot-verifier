@@ -143,7 +143,7 @@
       {
         "name": "bucket",
         "type": "uint8",
-        "internalType": "enum Denylist.Bucket"
+        "internalType": "uint8"
       },
       {
         "name": "id",
@@ -167,7 +167,7 @@
       {
         "name": "bucket",
         "type": "uint8",
-        "internalType": "enum Denylist.Bucket"
+        "internalType": "uint8"
       },
       {
         "name": "id",
@@ -259,7 +259,7 @@
       {
         "name": "bucket",
         "type": "uint8",
-        "internalType": "enum Denylist.Bucket"
+        "internalType": "uint8"
       }
     ],
     "outputs": [],
@@ -410,6 +410,17 @@
         "name": "id",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidBucket",
+    "inputs": [
+      {
+        "name": "bucket",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ]
   },

@@ -30,6 +30,8 @@ export const ERROR_GLOSSARY: readonly ErrorGlossaryEntry[] = [
   { name: "NotGovernance", meaning: "Caller is not governance, or owner() is not governance." },
   { name: "DependencyChangeWhileFunded", meaning: "setDenylist, setVault, or setDisputePanel while lockedValue is not zero." },
   { name: "DenylistUnchanged", meaning: "setDenylist was given the current denylist." },
+  { name: "VaultUnchanged", meaning: "setVault was given the current vault." },
+  { name: "DisputePanelUnchanged", meaning: "setDisputePanel was given the current dispute panel." },
   { name: "not a party", meaning: "dispute() caller is neither payer nor payee." },
   { name: "not expired", meaning: "refund() on an Open escrow before expiresAt." },
   { name: "transfer failed", meaning: "Paying the payee returned false." },

@@ -379,10 +379,28 @@
     "name": "DisputePanelUpdated",
     "inputs": [
       {
-        "name": "panel",
+        "name": "previousPanel",
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "newPanel",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "actor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -536,10 +554,28 @@
     "name": "VaultUpdated",
     "inputs": [
       {
-        "name": "vault",
+        "name": "previousVault",
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "newVault",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "actor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -563,6 +599,11 @@
   {
     "type": "error",
     "name": "DependencyChangeWhileFunded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DisputePanelUnchanged",
     "inputs": []
   },
   {
@@ -635,6 +676,11 @@
   {
     "type": "error",
     "name": "Replay",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VaultUnchanged",
     "inputs": []
   },
   {
