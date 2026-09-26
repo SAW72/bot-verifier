@@ -38,3 +38,5 @@ Contract slots, in deploy order:
 `DisputePanel` ownership moves immediately via `setOwner`. `openDispute` reverts with `panel not seated` until that owner has called `setArbitrator` for three addresses (`arbitratorCount >= 3`). On the live panel Gate B is seated: `arbitratorCount` is 3. Arbitrators: `0xD5ee9fA366C3698b34204722c635989E5197B018`, `0xF4253A3a3C102Ee59e38b2AA92989C3232eDcC30`, `0xB87Ed5F74276AC6172ef53fE866675093F75936E`. Seat txs (block 47299643): `0xa97b518ad87489ab1d45ec4bef5e548c1d4bf3b9c940552e8cba1752fed7553c`, `0xf1ad4d9221b2393863d9bc6a72c1a716cf389532d2cfa63fd4df682303ed6df6`, `0xa1f8f0fb6ad78dd2d9fd9d33dabf9cde5b73195a1b292869e7d96cc985cb79a3`. Commands: [`script/DEPLOY_ESCROW_BASE_SEPOLIA.md`](../script/DEPLOY_ESCROW_BASE_SEPOLIA.md).
 
 Spencer fills this file. Agents do not `--broadcast`.
+
+The read-only wallet UI loads live slots from this file (`apps/wallet-ux`). `superseded` is not a read target. If this book fails validation, the UI falls back to the corrected Gate A pin in `apps/wallet-ux/src/book.ts`.

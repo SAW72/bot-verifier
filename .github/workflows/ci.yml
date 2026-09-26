@@ -49,3 +49,22 @@ jobs:
       - name: Claim relayer unit tests (no network)
         working-directory: claim-relayer
         run: npm test
+
+  wallet-ux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/wallet-ux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/wallet-ux/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
