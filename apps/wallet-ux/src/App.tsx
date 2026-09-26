@@ -176,7 +176,13 @@ export function App() {
   return (
     <div className="wrap">
       <header>
-        <h1>Bot Verifier</h1>
+        <div className="brand">
+          <picture>
+            <source srcSet="/logo.webp" type="image/webp" />
+            <img src="/logo.png" alt="" width={34} height={36} />
+          </picture>
+          <h1>Bot Verifier</h1>
+        </div>
         <p className="lede">Base Sepolia only · chain id {BASE_SEPOLIA_CHAIN_ID}</p>
       </header>
 

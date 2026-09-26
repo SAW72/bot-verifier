@@ -32,6 +32,33 @@ body {
 }
 
 h1 { font-size: 1.6rem; margin: 0 0 4px; }
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.brand h1 {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.brand picture {
+  display: block;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.brand img {
+  display: block;
+  width: 34px;
+  height: 36px;
+}
 h2 { font-size: 1.15rem; margin: 0 0 10px; }
 h3 { font-size: 1rem; margin: 16px 0 8px; }
 
