@@ -176,8 +176,8 @@ export function App() {
   return (
     <div className="wrap">
       <header>
-        <h1>Agent A</h1>
-        <p className="lede">Agent Auditor · Base Sepolia only · chain id {BASE_SEPOLIA_CHAIN_ID}</p>
+        <h1>Bot Verifier</h1>
+        <p className="lede">Base Sepolia only · chain id {BASE_SEPOLIA_CHAIN_ID}</p>
       </header>
 
       <section className="card" aria-labelledby="connection-heading">

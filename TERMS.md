@@ -1,4 +1,4 @@
-# Agent A (Agent Auditor) — Terms of Use (MVP)
+# Bot Verifier — Terms of Use (MVP)
 
 **Last updated:** 2026-09-12
 
@@ -13,7 +13,7 @@ The Operator line is a **placeholder**. No public LLC, trade name, or street add
 
 ## 1. Agreement
 
-By accessing the Agent A (Agent Auditor) repository, documentation, APIs, stamps, contracts, or related materials (the "**Service**"), you agree to these Terms, the **[Disclaimer](DISCLAIMER.md)**, and the **[Privacy Notice](PRIVACY.md)**. If you use the Service on behalf of an organization, you represent that you have authority to bind it.
+By accessing the Bot Verifier repository, documentation, APIs, stamps, contracts, or related materials (the "**Service**"), you agree to these Terms, the **[Disclaimer](DISCLAIMER.md)**, and the **[Privacy Notice](PRIVACY.md)**. If you use the Service on behalf of an organization, you represent that you have authority to bind it.
 
 ## 2. Operator
 
@@ -21,7 +21,7 @@ The Service is operated on an experimental basis by **[Applicant — redacted pe
 
 ## 3. The Service
 
-Agent A is an **experimental AI / crypto trust-signal toolkit**. It may include adversarial scenarios, scoring, behavioral fingerprints, denylists, vault/registry designs, dispute and claims-backstop prototypes, APIs, and (where deployed) testnet smart contracts and a BVT token used for fees, auditor bonds, and governance experiments.
+Bot Verifier is an **experimental AI / crypto trust-signal toolkit**. It may include adversarial scenarios, scoring, behavioral fingerprints, denylists, vault/registry designs, dispute and claims-backstop prototypes, APIs, and (where deployed) testnet smart contracts and a BVT token used for fees, auditor bonds, and governance experiments.
 
 The Service is **not** a certification body, insurance product, licensed financial service, or investment offering. Features may be incomplete, stubbed, in-memory, unaudited, or testnet-only.
 
