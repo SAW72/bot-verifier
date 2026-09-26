@@ -176,8 +176,14 @@ export function App() {
   return (
     <div className="wrap">
       <header>
-        <h1>Agent A</h1>
-        <p className="lede">Agent Auditor · Base Sepolia only · chain id {BASE_SEPOLIA_CHAIN_ID}</p>
+        <div className="brand">
+          <picture>
+            <source srcSet="/logo.webp" type="image/webp" />
+            <img src="/logo.png" alt="" width={34} height={36} />
+          </picture>
+          <h1>Agent BV — Bot Verifier</h1>
+        </div>
+        <p className="lede">Base Sepolia only · chain id {BASE_SEPOLIA_CHAIN_ID}</p>
       </header>
 
       <section className="card" aria-labelledby="connection-heading">
@@ -301,11 +307,8 @@ export function App() {
       <DenylistLookup client={client} enabled={guard.ok} blockedReason={blockedReason} />
 
       <footer>
-        <p>
-          Experimental Base Sepolia view. Not a certification or an insurance product. Escrow and dispute calls can be
-          submitted from a connected Base Sepolia wallet. Ethereum mainnet and Base mainnet are refused. This page
-          does not sign EIP-712 claims.
-        </p>
+        <p>Agent B.V. is a product of Steward of the King LLC, an Ohio (USA) limited liability company.</p>
+        <p>Base Sepolia testnet only</p>
       </footer>
     </div>
   )

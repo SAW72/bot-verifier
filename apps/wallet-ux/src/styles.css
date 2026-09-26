@@ -32,6 +32,34 @@ body {
 }
 
 h1 { font-size: 1.6rem; margin: 0 0 4px; }
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.brand h1 {
+  margin: 0;
+  min-width: 0;
+  line-height: 1.15;
+  font-size: clamp(1.05rem, 4.8vw, 1.6rem);
+}
+
+.brand picture {
+  display: block;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.brand img {
+  display: block;
+  width: 34px;
+  height: 36px;
+}
 h2 { font-size: 1.15rem; margin: 0 0 10px; }
 h3 { font-size: 1rem; margin: 16px 0 8px; }
 
@@ -196,6 +224,8 @@ label { display: block; margin-bottom: 4px; }
 .glossary dd { margin: 0; color: var(--muted); }
 
 footer { color: var(--muted); font-size: 0.92rem; }
+footer p { margin: 0 0 6px; }
+footer p:last-child { margin-bottom: 0; }
 
 @media (max-width: 640px) {
   .kv-row { grid-template-columns: 1fr; gap: 2px; }
