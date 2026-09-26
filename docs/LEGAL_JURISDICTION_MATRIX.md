@@ -1,12 +1,12 @@
 # Legal jurisdiction matrix (risk map)
 
-**Status:** Informal **risk map** for Bot Verifier maintainers.  
+**Status:** Informal **risk map** for Agent A (Agent Auditor) maintainers.  
 **Not** a formal legal opinion, not a compliance program, and **not a catalog of every law worldwide**.  
 **Operator:** [Applicant — redacted pending Spencer approval] · **Contact:** [contact redacted]
 
 Counsel should refresh this before any public launch, token distribution, paid institutional product, or marketing that looks like certification or insurance.
 
-Bot Verifier is a **US-based experimental** AI/crypto trust-signal project (scores, stamps, denylists, testnet contracts, optional BVT operational token). The table flags **material** regimes that commonly attach to that fact pattern.
+Agent A (Agent Auditor) is a **US-based experimental** AI/crypto trust-signal project (scores, stamps, denylists, testnet contracts, optional BVT operational token). The table flags **material** regimes that commonly attach to that fact pattern.
 
 | Regime | Why it can attach | Current experimental posture | Watch-outs |
 | --- | --- | --- | --- |

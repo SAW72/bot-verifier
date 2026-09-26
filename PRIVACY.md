@@ -1,11 +1,11 @@
-# Bot Verifier — Privacy Notice (MVP)
+# Agent A (Agent Auditor) — Privacy Notice (MVP)
 
 **Last updated:** 2026-09-12
 
 **Controller:** [Applicant — redacted pending Spencer approval]  
 **Contact:** [contact redacted]
 
-This Privacy Notice describes how the experimental Bot Verifier Service may process information. It is an **MVP notice**, not a certified GDPR Article 13/14 pack and not a CCPA "notice at collection" filed with any regulator.
+This Privacy Notice describes how the experimental Agent A (Agent Auditor) Service may process information. It is an **MVP notice**, not a certified GDPR Article 13/14 pack and not a CCPA "notice at collection" filed with any regulator.
 
 If you do not agree, do not use the Service. See also **[DISCLAIMER.md](DISCLAIMER.md)** and **[TERMS.md](TERMS.md)**.
 
