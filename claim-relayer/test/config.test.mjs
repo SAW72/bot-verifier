@@ -51,6 +51,7 @@ describe("config gates", () => {
     const book = JSON.parse(await readFile(new URL("../../deployments/base-sepolia.json", import.meta.url), "utf8"));
     assert.equal(book.chainId, 84532);
     assert.equal(book.BotAttestationEscrow.address, BOOKED_SEPOLIA_ESCROW);
+    assert.equal(book.claimRelayerWallet, DEFAULT_RELAYER_ADDRESS);
 
     const explicit = liveSubmitStatus(
       { LIVE_SUBMIT: "1", SPENCER_RUN_AUTH: "1" },

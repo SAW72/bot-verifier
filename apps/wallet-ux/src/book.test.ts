@@ -40,6 +40,7 @@ describe("deployment book", () => {
     expect(ADDRESSES.liability).toBe(CANONICAL.liability)
     expect(ADDRESSES.insuranceFund).toBe(CANONICAL.insuranceFund)
     expect(ADDRESSES.botAttestationEscrow).toBe("0x141214F04b0E1d949B6e6bf32D019Ad7Ab5B284c")
+    expect(deploymentBook.claimRelayerWallet).toBe("0x9D1b3E1400D2632d435cB7C0fC131C4f42B31861")
     expect(ADDRESSES.bvt).toBeNull()
     expect(JSON.stringify(ADDRESSES).toLowerCase()).not.toContain(SUPERSEDED.denylist.toLowerCase())
     expect(JSON.stringify(ADDRESSES).toLowerCase()).not.toContain(SUPERSEDED.vault.toLowerCase())
