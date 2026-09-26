@@ -1,6 +1,6 @@
 # Bot Verifier — Terms of Use (MVP)
 
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-26
 
 **Operator:** [Applicant — redacted pending Spencer approval]  
 **Contact:** [contact redacted]
@@ -13,7 +13,7 @@ The Operator line is a **placeholder**. No public LLC, trade name, or street add
 
 ## 1. Agreement
 
-By accessing the Bot Verifier repository, documentation, APIs, stamps, contracts, or related materials (the "**Service**"), you agree to these Terms, the **[Disclaimer](DISCLAIMER.md)**, and the **[Privacy Notice](PRIVACY.md)**. If you use the Service on behalf of an organization, you represent that you have authority to bind it.
+By accessing the Bot Verifier (formerly Agent A) repository, documentation, APIs, stamps, contracts, or related materials (the "**Service**"), you agree to these Terms, the **[Disclaimer](DISCLAIMER.md)**, and the **[Privacy Notice](PRIVACY.md)**. If you use the Service on behalf of an organization, you represent that you have authority to bind it.
 
 ## 2. Operator
 

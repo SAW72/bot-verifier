@@ -1,11 +1,11 @@
 # Bot Verifier — Master Disclaimer
 
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-26
 
 **Operator:** [Applicant — redacted pending Spencer approval]  
 **Contact:** [contact redacted]
 
-This Disclaimer applies to the Bot Verifier project, including its software, documentation, APIs, scores, stamps, denylists, attestation reports, smart contracts, tokens, and any related experimental claims-backstop or liability-waterfall designs (together, the "**Service**"). By accessing or using the Service, you acknowledge this Disclaimer. **[Terms of Use](TERMS.md)** govern if there is a conflict.
+This Disclaimer applies to the Bot Verifier (formerly Agent A) project, including its software, documentation, APIs, scores, stamps, denylists, attestation reports, smart contracts, tokens, and any related experimental claims-backstop or liability-waterfall designs (together, the "**Service**"). By accessing or using the Service, you acknowledge this Disclaimer. **[Terms of Use](TERMS.md)** govern if there is a conflict.
 
 This document is **not** a legal opinion, insurance policy, certification, or offer of any security or token.
 
